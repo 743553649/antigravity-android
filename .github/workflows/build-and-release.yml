@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - dev
   workflow_dispatch:
     inputs:
       tag_name:
@@ -118,13 +120,13 @@ jobs:
             dist/SHA256SUMS.txt
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/dev'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
-          name: Antigravity for Android ${{ github.event.inputs.tag_name || github.ref_name }}
+          tag_name: ${{ github.event.inputs.tag_name || (github.ref == 'refs/heads/dev' && 'v2.2.8' || github.ref_name) }}
+          name: ${{ github.ref == 'refs/heads/dev' && 'Antigravity for Android v2.2.8' || format('Antigravity for Android {0}', github.event.inputs.tag_name || github.ref_name) }}
           draft: ${{ github.event.inputs.draft || false }}
-          prerelease: ${{ github.event.inputs.prerelease || false }}
+          prerelease: ${{ github.ref == 'refs/heads/dev' || github.event.inputs.prerelease || false }}
           files: |
             dist/antigravity.apk
             dist/antigravity-bypass.apk
@@ -149,12 +151,14 @@ jobs:
 
             ### Key Highlights in this Release
 
+            * **ARMv8.0-A CPU Architecture Fix:** Added transparent atomic emulation layer (`liblse_compat.so`) via `LD_PRELOAD`, fixing `FATAL ERROR: This binary was compiled with lse enabled, but this feature is not available on this processor` and `SIGILL` crashes on Snapdragon 685 (Cortex-A53 / Redmi Note 12).
+            * **OAuth Browser Redirection & Custom Tab Session Fix:** Removed invalid null Custom Tab session binder causing Chrome/MIUI browser to drop authentication intents, implemented direct launch of system browsers (`com.android.chrome`, `com.mi.globalbrowser`), and resolved URL watcher tail desync.
+            * **Universal External URL Shims:** Installed automated shims for `xdg-open`, `open`, `x-www-browser`, `google-chrome`, `chrome`, `chromium`, `gnome-open` directly before engine startup.
             * **Terminal PTY Creation Fix:** Corrected shell path resolution (`SHELL` environment variable pointing to bionic bash bridge) for the native engine, resolving "Failed to create terminal" (`stat /bin/bash: no such file or directory`) on Android.
             * **Integrated Log Export & Diagnostics:** Added "Copy Logs" and "Save Logs" actions to the startup failure splash overlay, enabling one-tap clipboard copying and direct export to `Downloads/antigravity-core.log` with Android share sheet integration.
             * **Google DocumentsUI File Picker Support:** Implemented native Storage Access Framework (`ACTION_OPEN_DOCUMENT`) in WebView with multiple file selection for prompt "Add Context" media/file attachments.
             * **Autonomous Background Micro-Daemon (`agy-daemon`):** Added scheduled triggers for delayed tasks, intervals, GitHub PR/issue tracking, file watching, battery thresholds, and webhook endpoints.
             * **Notification Management CLI (`agy-notify`):** Native notification posting and management with high-resolution Antigravity application icon.
-            * **Dynamic System Theme & Icon Follow:** Refined launcher icon switching on backgrounding and real-time Android light/dark theme tracking.
 
             ---
 
