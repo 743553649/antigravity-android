@@ -96,10 +96,12 @@ public final class CoreProcessSupervisor {
                 }
                 CoreRuntimeState.serverUrl = null;
                 attempt++;
+                String tail = getLastLinesFromLog(appContext.getFilesDir(), 15);
                 if (attempt > CoreRestartPolicy.MAX_RESTARTS) {
                     CoreRuntimeState.restarting = false;
                     CoreRuntimeState.lastError = "core crashed " + CoreRestartPolicy.MAX_RESTARTS
-                            + " times; giving up (last exit code " + code + ")";
+                            + " times; giving up (last exit code " + code + ")"
+                            + (tail.isEmpty() ? "" : "\n--- core.log tail ---\n" + tail);
                     CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                     break;
                 }
@@ -107,7 +109,8 @@ public final class CoreProcessSupervisor {
                 CoreRuntimeState.restarting = true;
                 CoreRuntimeState.lastError = "core exited unexpectedly (code " + code
                         + "); restarting in " + (delay / 1000) + "s (attempt "
-                        + attempt + "/" + CoreRestartPolicy.MAX_RESTARTS + ")";
+                        + attempt + "/" + CoreRestartPolicy.MAX_RESTARTS + ")"
+                        + (tail.isEmpty() ? "" : "\n--- core.log tail ---\n" + tail);
                 Log.w(TAG, CoreRuntimeState.lastError);
                 CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                 CoreLogWriter.closeQuietly(log);

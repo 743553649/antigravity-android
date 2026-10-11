@@ -40,6 +40,51 @@ public final class ShellBridgeInstaller {
     private ShellBridgeInstaller() {
     }
 
+    public static synchronized void installFallbackBridges(File bin) {
+        installFallbackBridges(bin, null);
+    }
+
+    public static synchronized void installFallbackBridges(File bin, android.content.Context context) {
+        if (bin == null) return;
+        if (!bin.isDirectory() && !bin.mkdirs() && !bin.isDirectory()) {
+            Log.w(TAG, "cannot create " + bin + "; skipping fallback bridges");
+            return;
+        }
+        // Always guarantee bash and sh exist immediately
+        File bash = new File(bin, "bash");
+        if (!bash.isFile()) {
+            writeScript(bash, "#!/system/bin/sh\n# AGY fallback shell\nexec /system/bin/sh \"$@\"\n");
+        }
+        File sh = new File(bin, "sh");
+        if (!sh.isFile()) {
+            writeScript(sh, "#!/system/bin/sh\n# AGY fallback shell\nexec /system/bin/sh \"$@\"\n");
+        }
+        writeTorchShims(bin, context);
+    }
+
+    public static synchronized void writeTorchShims(File bin, android.content.Context context) {
+        String pkg = (context != null) ? context.getPackageName() : "com.agy";
+        String script = "#!/system/bin/sh\n"
+                + "# AGY Torch / Flashlight shim\n"
+                + "STATE=\"$1\"\n"
+                + "[ -z \"$STATE\" ] && STATE=\"on\"\n"
+                + "ENABLE=\"true\"\n"
+                + "if [ \"$STATE\" = \"off\" ] || [ \"$STATE\" = \"0\" ] || [ \"$STATE\" = \"false\" ]; then\n"
+                + "  ENABLE=\"false\"\n"
+                + "fi\n"
+                + "if [ -x /system/bin/cmd ]; then\n"
+                + "  /system/bin/cmd camera set-torch-mode 0 \"$STATE\" >/dev/null 2>&1 || true\n"
+                + "fi\n"
+                + "if [ -x /system/bin/am ]; then\n"
+                + "  /system/bin/am broadcast -a com.agy.ACTION_TORCH -p " + pkg + " --ez enabled \"$ENABLE\" --es state \"$STATE\" >/dev/null 2>&1 || true\n"
+                + "fi\n"
+                + "echo \"Flashlight set to $STATE\"\n"
+                + "exit 0\n";
+        writeScript(new File(bin, "torch"), script);
+        writeScript(new File(bin, "termux-torch"), script);
+        writeScript(new File(bin, "termux-camera-torch"), script);
+    }
+
     public static synchronized void installOpenUrlShims(File bin) {
         installOpenUrlShims(bin, null);
     }
@@ -71,13 +116,14 @@ public final class ShellBridgeInstaller {
             Log.w(TAG, "cannot create " + bin + "; skipping shell bridges");
             return;
         }
-        // Always ensure open-url shims exist FIRST, even before prefix is installed
+        // Always ensure fallback shells and shims exist FIRST
+        installFallbackBridges(bin, rm.appContext());
         installOpenUrlShims(bin, rm.appContext());
 
         File prefix = EnvInstaller.prefix(rm.appContext());
         File prefixBash = new File(prefix, "bin/bash");
         if (!prefixBash.isFile()) {
-            Log.w(TAG, "prefix bash missing (" + prefixBash + "); skipping shell bridges");
+            Log.w(TAG, "prefix bash missing (" + prefixBash + "); keeping fallback shell bridges");
             return;
         }
         writeBridge(new File(bin, "bash"), prefix, "bash");
@@ -214,13 +260,21 @@ public final class ShellBridgeInstaller {
         sb.append("# AGY bridge -> bionic $PREFIX/bin/").append(target).append('\n');
         sb.append("PREFIX=").append(p).append('\n');
         sb.append("export PREFIX\n");
+        sb.append("if [ -f \"$PREFIX/lib/libtermux-exec.so\" ]; then\n");
+        sb.append("  export LD_PRELOAD=\"$PREFIX/lib/libtermux-exec.so\"\n");
+        sb.append("else\n");
+        sb.append("  unset LD_PRELOAD\n");
+        sb.append("fi\n");
         sb.append("export LD_LIBRARY_PATH=\"$PREFIX/lib\"\n");
-        sb.append("export LD_PRELOAD=\"$PREFIX/lib/libtermux-exec.so\"\n");
         sb.append("export PATH=\"$PREFIX/bin:/system/bin\"\n");
         sb.append("export OPENSSL_CONF=\"$PREFIX/etc/tls/openssl.cnf\"\n");
         sb.append("export SSL_CERT_FILE=\"$PREFIX/etc/tls/cert.pem\"\n");
         sb.append("export CURL_CA_BUNDLE=\"$PREFIX/etc/tls/cert.pem\"\n");
-        sb.append("exec \"$PREFIX/bin/").append(target).append("\" \"$@\"\n");
+        sb.append("if [ -x \"$PREFIX/bin/").append(target).append("\" ]; then\n");
+        sb.append("  exec \"$PREFIX/bin/").append(target).append("\" \"$@\"\n");
+        sb.append("else\n");
+        sb.append("  exec /system/bin/sh \"$@\"\n");
+        sb.append("fi\n");
         writeScript(bridge, sb.toString());
     }
 

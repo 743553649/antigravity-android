@@ -60,8 +60,9 @@ public final class CoreInstaller {
         rm.writeNetworkConfig();
         rm.startNetworkMonitor();
         OnboardingSeeder.seed(ctx, rm.getAppDataDir(), rm.getProjectsDir());
-        // Always ensure open-url shims (xdg-open, open, sensible-browser) are installed
-        // in runtime/bin regardless of whether the bionic prefix is extracted.
+        // Always ensure fallback shells and open-url shims are installed
+        // in runtime/bin immediately regardless of whether the bionic prefix is extracted.
+        ShellBridgeInstaller.installFallbackBridges(rm.getBinDir(), ctx);
         ShellBridgeInstaller.installOpenUrlShims(rm.getBinDir(), ctx);
         // If the env prefix survived a previous launch, its bridges are cheap to
         // (re)write now. A fresh env install rewrites them when it finishes.
