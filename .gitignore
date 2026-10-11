@@ -39,3 +39,6 @@ jetski-standalone-oauth-token
 # Local build tools
 tools/*.exe
 tools/uber-apk-signer.jar
+
+# Scratch temporary work
+scratch/

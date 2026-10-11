@@ -46,6 +46,17 @@ public final class WebViewHost {
                 }
             }
         }));
+        this.webView.setDownloadListener(new android.webkit.DownloadListener() {
+            @Override
+            public void onDownloadStart(String url, String userAgent, String contentDisposition,
+                                        String mimetype, long contentLength) {
+                if (com.agy.ui.MainActivity.activeActivity != null) {
+                    com.agy.ui.download.FileDownloader.handleDownload(
+                            com.agy.ui.MainActivity.activeActivity, webView, url,
+                            userAgent, contentDisposition, mimetype, contentLength);
+                }
+            }
+        });
     }
 
     public WebViewHost(Context context, ThemeManager theme, OAuthManager oauth,

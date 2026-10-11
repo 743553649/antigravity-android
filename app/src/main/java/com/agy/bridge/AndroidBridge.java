@@ -138,4 +138,12 @@ public final class AndroidBridge {
     public String listNotifications() {
         return notification.list();
     }
+
+    @JavascriptInterface
+    public void saveBlob(String base64Data, String filename, String mimeType) {
+        if (MainActivity.activeActivity != null) {
+            com.agy.ui.download.FileDownloader.handleBlobData(
+                    MainActivity.activeActivity, base64Data, filename, mimeType);
+        }
+    }
 }

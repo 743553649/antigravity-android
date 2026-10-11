@@ -40,6 +40,9 @@ public final class CoreEnvironment {
         String godebug = env.get("GODEBUG");
         env.put("GODEBUG", godebug == null || godebug.isEmpty()
                 ? "netdns=go" : godebug + ",netdns=go");
+        // Emits "ANTIGRAVITY_OPEN_URL: <url>" directly to stdout from language_server
+        // so OpenUrlWatcher captures the auth URL and opens the external browser reliably.
+        env.put("ANTIGRAVITY_VSCODE_HOST", "1");
         // Configure browser and desktop environment so core OAuth/open tools find the browser
         File xdgOpen = new File(bin, "xdg-open");
         env.put("BROWSER", xdgOpen.getAbsolutePath());

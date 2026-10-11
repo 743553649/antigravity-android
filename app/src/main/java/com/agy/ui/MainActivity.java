@@ -403,6 +403,15 @@ public class MainActivity extends Activity
         }
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == com.agy.ui.download.FileDownloader.REQUEST_STORAGE_DOWNLOAD) {
+            WebView wv = (webViewHost != null) ? webViewHost.getWebView() : null;
+            com.agy.ui.download.FileDownloader.onPermissionResult(this, wv, requestCode, grantResults);
+        }
+    }
+
     public void showAuthBanner(final String url) {
         if (url == null || url.trim().isEmpty()) return;
         handler.post(new Runnable() {
