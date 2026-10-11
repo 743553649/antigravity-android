@@ -1,15 +1,15 @@
 {
   "core": {
-    "path": "core/language_server",
-    "sha256_final": "6f738eba385f68d66c83dfd50546346a30688422d364fa398d2f9155586853da",
-    "sha256_initial": "6f738eba385f68d66c83dfd50546346a30688422d364fa398d2f9155586853da",
+    "path": "C:\\Users\\val-c\\OneDrive\\\u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b\\Antigravity\\antigravity-android\\build\\staging\\language_server",
+    "sha256_final": "c4d96cc7555730e44752c3a19a4d9983366d47c20a12cc2317fceb66a3ba509c",
+    "sha256_initial": "d62259ec41556629bb62b1accf2dee6d0e77c4f851d259665e9569b8c93b1c68",
     "size": 174608568,
     "version": "go1.28-20260721-RC03 cl/951519500 +3ebc191975 X:fieldtrack,boringcrypto,simd,mapsplitgroup"
   },
-  "generated_at": "2026-10-07T11:27:09Z",
+  "generated_at": "2026-10-10T14:55:45Z",
   "groups": [
     {
-      "changed": 3,
+      "changed": 0,
       "description": "Force eligibility/auth gate bits (CLI + EnterpriseAuthValidator).",
       "expected_counts": {
         "cli": 2,
@@ -19,30 +19,30 @@
       "group": "eligibility",
       "id": "eligibility",
       "messages": [
-        "would patch"
+        "already patched, nothing to do"
       ],
       "observed_counts": {
         "cli": {
-          "patched": 0,
-          "raw": 2
+          "patched": 2,
+          "raw": 0
         },
         "manager": {
-          "patched": 0,
-          "raw": 1
+          "patched": 1,
+          "raw": 0
         }
       },
       "offsets": {
-        "cli_patched": [],
-        "cli_raw": [
+        "cli_patched": [
           "0x4ffbcfc",
           "0x67eb684"
         ],
-        "manager_patched": [],
-        "manager_raw": [
+        "cli_raw": [],
+        "manager_patched": [
           "0x6bd13e0"
-        ]
+        ],
+        "manager_raw": []
       },
-      "state": "dry-run"
+      "state": "already"
     },
     {
       "changed": 0,
@@ -53,21 +53,19 @@
           "functions": {
             "syscall.faccessat2": {
               "entry": "0x4a668a0",
-              "mov_offset": "0x4a669c4",
-              "new_count": 0,
-              "old_count": 1,
+              "new_count": 1,
+              "old_count": 0,
               "present": true,
               "size": 320,
-              "state": "patch"
+              "state": "already"
             },
             "syscall.fchmodat2": {
               "entry": "0x4a66b10",
-              "mov_offset": "0x4a66c34",
-              "new_count": 0,
-              "old_count": 1,
+              "new_count": 1,
+              "old_count": 0,
               "present": true,
               "size": 320,
-              "state": "patch"
+              "state": "already"
             }
           },
           "is_primary": true,
@@ -97,12 +95,11 @@
           "functions": {
             "syscall.faccessat2": {
               "entry": "0x98a103b",
-              "mov_offset": "0x98a10af",
-              "new_count": 0,
-              "old_count": 1,
+              "new_count": 1,
+              "old_count": 0,
               "present": true,
               "size": 320,
-              "state": "patch"
+              "state": "already"
             },
             "syscall.fchmodat2": {
               "present": false,
@@ -136,25 +133,16 @@
       "id": "seccomp",
       "messages": [
         "go elf @0x0: .text@0x49bc000 pclntab@0x138a198 nfunc=156100",
-        "syscall.faccessat2 @0x4a669c4: would patch 439 -> 48",
-        "syscall.fchmodat2 @0x4a66c34: would patch 452 -> 53",
+        "syscall.faccessat2: already patched (48)",
+        "syscall.fchmodat2: already patched (53)",
         "go elf @0x96f32cb: .text@0x96f42cb pclntab@0x9d09c4b nfunc=19519",
-        "syscall.faccessat2 @0x98a10af: would patch 439 -> 48"
+        "syscall.faccessat2: already patched (48)"
       ],
-      "offsets": {
-        "elf_0x0": {
-          "syscall.faccessat2": "0x4a669c4",
-          "syscall.fchmodat2": "0x4a66c34"
-        },
-        "elf_0x96f32cb": {
-          "syscall.faccessat2": "0x98a10af"
-        }
-      },
-      "state": "dry-run",
-      "would_change": 3
+      "offsets": {},
+      "state": "already"
     },
     {
-      "changed": 2,
+      "changed": 0,
       "description": "Relative resolver path; /etc/resolv.conf -> etc//resolv.conf.",
       "expected_counts": {
         "clean": 2
@@ -162,26 +150,51 @@
       "file": "resolv",
       "group": "resolv",
       "id": "resolv",
+      "messages": [
+        "already patched"
+      ],
+      "observed_counts": {
+        "clean": 0,
+        "rejected": 0,
+        "replacement": 2
+      },
+      "offsets": {
+        "clean": [],
+        "rejected": [],
+        "replacement": [
+          "0x4074c79",
+          "0x9cca78d"
+        ]
+      },
+      "state": "already"
+    },
+    {
+      "changed": 2,
+      "description": "Preserve LD_PRELOAD SIGILL handler by skipping Go rt_sigaction for SIGILL (4).",
+      "expected_counts": {
+        "raw": 2
+      },
+      "file": "sigill",
+      "group": "sigill",
+      "id": "sigill",
       "messages": [],
       "observed_counts": {
-        "clean": 2,
-        "rejected": 0,
+        "raw": 2,
         "replacement": 0
       },
       "offsets": {
-        "clean": [
-          "0x4074c79",
-          "0x9cca78d"
+        "raw": [
+          "0x4a52e20",
+          "0x9884eab"
         ],
-        "rejected": [],
         "replacement": []
       },
-      "state": "dry-run"
+      "state": "patched"
     }
   ],
   "mode": {
     "allow_missing": false,
-    "dry_run": true,
+    "dry_run": false,
     "verify": false
   },
   "ok": true,

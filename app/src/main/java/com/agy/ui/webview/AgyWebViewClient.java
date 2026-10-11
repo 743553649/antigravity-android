@@ -14,6 +14,7 @@ import android.webkit.WebViewClient;
 
 import com.agy.bridge.AndroidBridge;
 import com.agy.oauth.OAuthManager;
+import com.agy.util.LoopbackHost;
 
 /** WebView client: OAuth interception, loopback TLS, and static asset serving. */
 public final class AgyWebViewClient extends WebViewClient {
@@ -48,23 +49,50 @@ public final class AgyWebViewClient extends WebViewClient {
         String url = request != null && request.getUrl() != null
                 ? request.getUrl().toString() : null;
         Log.i(TAG, "shouldOverrideUrlLoading url=" + url);
-        return oauth.intercept(context, url);
+        return handleNavigation(v, url);
     }
 
     @Override
     @SuppressWarnings("deprecation")
     public boolean shouldOverrideUrlLoading(WebView v, String url) {
         Log.i(TAG, "shouldOverrideUrlLoading(deprecated) url=" + url);
+        return handleNavigation(v, url);
+    }
+
+    private boolean handleNavigation(WebView v, String url) {
+        if (url == null || url.isEmpty() || url.equals("about:blank")) {
+            return false;
+        }
+        try {
+            Uri uri = Uri.parse(url);
+            if (!LoopbackHost.isLoopback(uri)) {
+                Log.i(TAG, "non-loopback navigation -> external browser: " + url);
+                return oauth.openInBrowser(context, url);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "cannot parse uri: " + url, e);
+        }
         return oauth.intercept(context, url);
     }
 
     /**
      * Server-side (3xx) redirects do not always reach shouldOverrideUrlLoading;
-     * catch the auth URL here and stop the WebView from rendering it (Google
-     * blocks WebView login).
+     * catch non-loopback URLs here and stop the WebView from rendering them.
      */
     @Override
     public void onPageStarted(WebView v, String url, Bitmap favicon) {
+        if (url != null && !url.equals("about:blank")) {
+            try {
+                Uri uri = Uri.parse(url);
+                if (!LoopbackHost.isLoopback(uri)) {
+                    Log.i(TAG, "onPageStarted intercepted non-loopback url: " + url);
+                    v.stopLoading();
+                    oauth.openInBrowser(context, url);
+                    return;
+                }
+            } catch (Exception ignored) {
+            }
+        }
         if (oauth.intercept(context, url)) {
             Log.i(TAG, "onPageStarted stopped auth url=" + url);
             v.stopLoading();

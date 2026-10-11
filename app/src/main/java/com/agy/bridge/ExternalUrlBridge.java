@@ -3,6 +3,7 @@ package com.agy.bridge;
 import android.content.Context;
 
 import com.agy.oauth.OAuthManager;
+import com.agy.ui.MainActivity;
 
 /** Opens a URL in the system browser (auth URLs included). */
 public final class ExternalUrlBridge {
@@ -19,10 +20,9 @@ public final class ExternalUrlBridge {
         if (url == null) {
             return;
         }
-        if (oauth.isAuthUrl(url)) {
-            oauth.openInBrowser(appContext, url);
-            return;
-        }
-        oauth.openInBrowser(appContext, url);
+        Context target = (MainActivity.activeActivity != null)
+                ? MainActivity.activeActivity
+                : appContext;
+        oauth.openInBrowser(target, url);
     }
 }

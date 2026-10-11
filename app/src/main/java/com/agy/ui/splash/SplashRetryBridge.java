@@ -32,7 +32,7 @@ public final class SplashRetryBridge {
         private final SplashRetryListener listener;
 
         Bridge(android.content.Context context, SplashRetryListener listener) {
-            this.context = context != null ? context.getApplicationContext() : null;
+            this.context = context;
             this.listener = listener;
         }
 

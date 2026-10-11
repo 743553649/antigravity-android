@@ -74,8 +74,8 @@ public final class CoreProcessSupervisor {
                     if (CoreRuntimeState.lastError == null) {
                         CoreRuntimeState.lastError =
                                 "core did not become ready within " + CoreReadyProbe.READY_TIMEOUT_MS + "ms";
+                        CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                     }
-                    CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                     destroy(proc);
                     break;
                 }
@@ -137,7 +137,11 @@ public final class CoreProcessSupervisor {
                 return false;
             }
             if (!ProcessUtils.isAlive(proc)) {
-                CoreRuntimeState.lastError = "core process exited before it became ready";
+                int code = ProcessUtils.exitCode(proc);
+                ProcessUtils.sleep(200);
+                String lastLogs = getLastLinesFromLog(appContext.getFilesDir(), 10);
+                CoreRuntimeState.lastError = "core process exited before it became ready (exit code " + code + ")"
+                        + (lastLogs.isEmpty() ? "" : "\n--- core.log tail ---\n" + lastLogs);
                 CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                 return false;
             }
@@ -183,5 +187,24 @@ public final class CoreProcessSupervisor {
         if (proc != null) {
             proc.destroy();
         }
+    }
+
+    private static String getLastLinesFromLog(java.io.File filesDir, int maxLines) {
+        java.io.File logFile = new java.io.File(filesDir, "logs/core.log");
+        if (!logFile.isFile()) {
+            return "";
+        }
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new java.io.FileReader(logFile))) {
+            String l;
+            while ((l = br.readLine()) != null) {
+                lines.add(l);
+                if (lines.size() > maxLines) {
+                    lines.remove(0);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return String.join("\n", lines);
     }
 }

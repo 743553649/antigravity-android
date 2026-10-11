@@ -21,23 +21,11 @@ public final class CoreInstaller {
     public static void installCore(RuntimeManager rm) {
         Context ctx = rm.appContext();
         File runtimeDir = rm.getRuntimeDir();
-        boolean extracted = isCoreExtracted(rm);
-        boolean verified = false;
-        if (extracted && runtimeMarkerFresh(rm)) {
-            // Verified when the APK was last updated; it has not changed since, so
-            // re-hashing ~174MB of runtime on every launch is redundant.
-            verified = true;
-            Log.i(TAG, "runtime already extracted and verified (APK unchanged); skipping extract");
-        } else {
-            String manifestError = ManifestVerifier.verifyError(ctx, runtimeDir);
-            if (extracted && manifestError == null) {
-                verified = true;
-                refreshRuntimeMarker(rm);
-                Log.i(TAG, "runtime already extracted and verified; skipping extract");
-            }
-        }
-        if (!verified) {
-            Log.i(TAG, "extracting assets/runtime (first launch or re-install)");
+        String expectedHash = getAssetManifestHash(ctx);
+        boolean upToDate = isRuntimeUpToDate(rm, expectedHash);
+
+        if (!upToDate) {
+            Log.i(TAG, "extracting assets/runtime (first launch or runtime update)");
             try {
                 wipe(rm, runtimeDir);
                 AssetUnpacker.unpackTree(ctx.getAssets(), RuntimePaths.RUNTIME_ASSET, runtimeDir);
@@ -47,12 +35,15 @@ public final class CoreInstaller {
                                 + ": " + e.getMessage(), e);
             }
             FileModeUtil.recursiveSetReadableExecutable(rm.getBinDir());
+            FileModeUtil.recursiveSetReadableExecutable(rm.getLibDir());
             String manifestError = ManifestVerifier.verifyError(ctx, runtimeDir);
             if (manifestError != null) {
                 throw new IllegalStateException(
                         "runtime integrity check failed: " + manifestError);
             }
-            writeMarker(rm.getRuntimeDir(), RuntimePaths.RUNTIME_MARKER);
+            writeMarker(rm.getRuntimeDir(), RuntimePaths.RUNTIME_MARKER, expectedHash);
+        } else {
+            Log.i(TAG, "runtime up to date (manifest hash matched); skipping extract");
         }
         if (!isWebExtracted(rm)) {
             try {
@@ -68,9 +59,10 @@ public final class CoreInstaller {
         // no recursive chmod is needed on a warm launch.
         rm.writeNetworkConfig();
         rm.startNetworkMonitor();
-        // Complete the onboarding state BEFORE the core starts, so the standalone
-        // backend opens the main interface instead of the Welcome wizard.
         OnboardingSeeder.seed(ctx, rm.getAppDataDir(), rm.getProjectsDir());
+        // Always ensure open-url shims (xdg-open, open, sensible-browser) are installed
+        // in runtime/bin regardless of whether the bionic prefix is extracted.
+        ShellBridgeInstaller.installOpenUrlShims(rm.getBinDir());
         // If the env prefix survived a previous launch, its bridges are cheap to
         // (re)write now. A fresh env install rewrites them when it finishes.
         if (EnvInstaller.isInstalled(ctx)) {
@@ -78,36 +70,31 @@ public final class CoreInstaller {
         }
     }
 
-    /** True once the runtime was extracted and the completion marker written. */
-    private static boolean isCoreExtracted(RuntimeManager rm) {
-        return new File(rm.getRuntimeDir(), RuntimePaths.RUNTIME_MARKER).isFile()
-                && new File(rm.getBinDir(), RuntimePaths.CORE_NAME).isFile();
-    }
-
-    /**
-     * True when the runtime marker is at least as new as the installed APK: the
-     * runtime was verified against the manifest during this APK's install and the
-     * APK has not changed since, so the ~174MB re-hash can be skipped.
-     */
-    private static boolean runtimeMarkerFresh(RuntimeManager rm) {
+    private static boolean isRuntimeUpToDate(RuntimeManager rm, String expectedHash) {
+        if (expectedHash == null || expectedHash.isEmpty()) {
+            return false;
+        }
         File marker = new File(rm.getRuntimeDir(), RuntimePaths.RUNTIME_MARKER);
-        if (!marker.isFile()) {
+        File core = new File(rm.getBinDir(), RuntimePaths.CORE_NAME);
+        File loader = new File(rm.getBinDir(), RuntimePaths.LOADER_NAME);
+        File lseCompat = new File(rm.getLibDir(), "liblse_compat.so");
+        if (!marker.isFile() || !core.isFile() || !loader.isFile() || !lseCompat.isFile()) {
             return false;
         }
         try {
-            long lastUpdate = rm.appContext().getPackageManager()
-                    .getPackageInfo(rm.appContext().getPackageName(), 0).lastUpdateTime;
-            return marker.lastModified() >= lastUpdate;
+            String actual = com.agy.util.IoUtil.readAll(new java.io.FileInputStream(marker), "UTF-8").trim();
+            return expectedHash.equals(actual);
         } catch (Exception e) {
-            return false; // fail-closed: fall back to the full verify
+            return false;
         }
     }
 
-    /** Touches the runtime marker so a warm launch skips the manifest re-hash. */
-    private static void refreshRuntimeMarker(RuntimeManager rm) {
-        File marker = new File(rm.getRuntimeDir(), RuntimePaths.RUNTIME_MARKER);
-        if (!marker.setLastModified(System.currentTimeMillis())) {
-            Log.w(TAG, "cannot refresh runtime marker: " + marker);
+    private static String getAssetManifestHash(Context ctx) {
+        try (java.io.InputStream in = ctx.getAssets().open(RuntimePaths.MANIFEST_ASSET)) {
+            return com.agy.util.Sha256.of(in);
+        } catch (Exception e) {
+            Log.w(TAG, "cannot hash asset manifest: " + e.getMessage());
+            return "";
         }
     }
 
@@ -129,8 +116,12 @@ public final class CoreInstaller {
     }
 
     private static void writeMarker(File dir, String name) {
+        writeMarker(dir, name, "1");
+    }
+
+    private static void writeMarker(File dir, String name, String content) {
         try {
-            com.agy.util.AtomicFileWriter.writeText(new File(dir, name), "1\n");
+            com.agy.util.AtomicFileWriter.writeText(new File(dir, name), content + "\n");
         } catch (Exception e) {
             Log.w(TAG, "cannot write marker " + name + ": " + e.getMessage());
         }

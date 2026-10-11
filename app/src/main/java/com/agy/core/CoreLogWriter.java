@@ -20,7 +20,7 @@ public final class CoreLogWriter {
         try {
             File dir = new File(filesDir, "logs");
             dir.mkdirs();
-            return new OutputStreamWriter(new FileOutputStream(new File(dir, "core.log"), true),
+            return new OutputStreamWriter(new FileOutputStream(new File(dir, "core.log"), false),
                     Charset.forName("UTF-8"));
         } catch (Exception e) {
             Log.w(TAG, "cannot open core log", e);

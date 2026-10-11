@@ -32,6 +32,7 @@
     {
       "id": "seccomp",
       "group": "seccomp",
+      "mode": "patch",
       "file": "syscalls",
       "module": "groups/syscalls/module.py",
       "description": "Retarget Android-seccomp-trapped syscalls: faccessat2 439->48 and fchmodat2 452->53, inside the Go function bodies only.",
@@ -61,6 +62,41 @@
         "replacement": "etc//resolv.conf (16 bytes)"
       },
       "verify": "clean target count==0 and replacement count==2"
+    },
+    {
+      "id": "sigill",
+      "group": "sigill",
+      "mode": "patch",
+      "file": "sigill",
+      "module": "groups/sigill/module.py",
+      "description": "Preserve LD_PRELOAD SIGILL handler by skipping Go rt_sigaction for SIGILL (4).",
+      "precondition": "exactly 2 raw sites in binary (main Go binary + embedded helper Go ELF).",
+      "expected_counts": {"raw": 2},
+      "signatures": {
+        "target": "e0 07 40 f9 e1 0b 40 f9 e2 0f 40 f9 e3 13 40 f9 c8 10 80 d2 01 00 00 d4 e0 2b 00 b9 c0 03 5f d6",
+        "replacement": "e0 87 40 a9 e2 8f 41 a9 1f 10 00 f1 c8 10 80 d2 40 00 00 54 01 00 00 d4 ff 2b 00 b9 c0 03 5f d6"
+      },
+      "verify": "raw count==0 and replacement count==2"
+    },
+    {
+      "id": "failfast",
+      "group": "failfast",
+      "mode": "patch",
+      "file": "failfast",
+      "module": "groups/failfast/module.py",
+      "description": "Bypass preinit CPU capability fail-fast check and preinit LSE atomic on ARMv8.0-A CPUs.",
+      "precondition": "exactly 1 raw/patched site for CPU feature check and 1 site for preinit atomic.",
+      "expected_counts": {
+        "cpu_feature": 1,
+        "preinit_atomic": 1
+      },
+      "signatures": {
+        "cpu_target": "13 f1 00 b0 0a 60 90 52 68 9e 42 f9 e9 03 28 2a 3f 01 0a ea e1 02 00 54 e8 03 38 36 e8 04 50 36",
+        "cpu_replacement": "19 00 00 14 1f 20 03 d5 1f 20 03 d5 1f 20 03 d5 1f 20 03 d5 1f 20 03 d5 1f 20 03 d5 1f 20 03 d5",
+        "atomic_target": "c8 ed 00 f0 08 a1 3b 91 29 00 80 52 08 01 e9 f8 48 00 00 b4 c0 03 5f d6 1f 20 03 d5",
+        "atomic_replacement": "c8 ed 00 f0 08 a1 3b 91 09 01 40 f9 2a 00 80 52 49 00 00 b4 c0 03 5f d6 0a 01 00 f9"
+      },
+      "verify": "cpu_feature raw==0 & repl==1 ; preinit_atomic raw==0 & repl==1"
     },
     {
       "id": "auth",

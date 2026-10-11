@@ -102,6 +102,7 @@ public final class RuntimeManager {
         File lib = getLibDir();
         File loader = new File(bin, RuntimePaths.LOADER_NAME);
         File core = new File(bin, RuntimePaths.CORE_NAME);
+        File lseCompat = new File(lib, "liblse_compat.so");
         if (!loader.isFile()) {
             throw new IllegalStateException("glibc loader missing: " + loader);
         }
@@ -109,22 +110,36 @@ public final class RuntimeManager {
             throw new IllegalStateException("core binary missing: " + core);
         }
 
-        return new String[]{
-                loader.getAbsolutePath(),
-                "--library-path", lib.getAbsolutePath(),
-                core.getAbsolutePath(),
-                "--standalone",
-                "--override_ide_name", "antigravity",
-                "--subclient_type", "hub",
-                "--override_ide_version", CORE_VERSION,
-                "--override_user_agent_name", "antigravity",
-                "--https_server_port", String.valueOf(getHttpsPort()),
-                "--csrf_token", csrfToken,
-                // Stable across builds: HOME/.gemini/<APP_DATA_DIR_NAME>.
-                "--app_data_dir", RuntimePaths.APP_DATA_DIR_NAME,
-                "--web_bundle_path", getWebDir().getAbsolutePath(),
-                "--enable_sidecars"
-        };
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add(loader.getAbsolutePath());
+        cmd.add("--library-path");
+        cmd.add(lib.getAbsolutePath());
+        if (lseCompat.isFile()) {
+            cmd.add("--preload");
+            cmd.add(lseCompat.getAbsolutePath());
+        }
+        cmd.add(core.getAbsolutePath());
+        cmd.add("--standalone");
+        cmd.add("--override_ide_name");
+        cmd.add("antigravity");
+        cmd.add("--subclient_type");
+        cmd.add("hub");
+        cmd.add("--override_ide_version");
+        cmd.add(CORE_VERSION);
+        cmd.add("--override_user_agent_name");
+        cmd.add("antigravity");
+        cmd.add("--https_server_port");
+        cmd.add(String.valueOf(getHttpsPort()));
+        cmd.add("--csrf_token");
+        cmd.add(csrfToken);
+        // Stable across builds: HOME/.gemini/<APP_DATA_DIR_NAME>.
+        cmd.add("--app_data_dir");
+        cmd.add(RuntimePaths.APP_DATA_DIR_NAME);
+        cmd.add("--web_bundle_path");
+        cmd.add(getWebDir().getAbsolutePath());
+        cmd.add("--enable_sidecars");
+
+        return cmd.toArray(new String[0]);
     }
 
     public void applyEnvironment(ProcessBuilder pb) {

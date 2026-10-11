@@ -14,7 +14,7 @@ public final class SplashOverlayHtml {
         if (splashView == null) {
             return;
         }
-        splashView.loadDataWithBaseURL(null,
+        splashView.loadDataWithBaseURL("https://app.antigravity.local/",
                 getOverlayHtml(title, message, foregroundColor, backgroundColor, retryable),
                 "text/html", "utf-8", null);
     }

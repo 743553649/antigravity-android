@@ -7,10 +7,13 @@ import android.content.ServiceConnection;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Parcel;
 import android.util.Log;
 
+import com.agy.ui.MainActivity;
 import com.agy.util.PackageInspector;
 
 import java.util.HashMap;
@@ -46,6 +49,13 @@ public final class CustomTabLauncher {
             "com.chrome.beta",
             "com.chrome.dev",
             "com.chrome.canary",
+            "com.mi.globalbrowser",
+            "com.android.browser",
+            "org.mozilla.firefox",
+            "com.microsoft.emmx",
+            "com.opera.browser",
+            "com.brave.browser",
+            "com.sec.android.app.sbrowser"
     };
 
     /** Session binder per browser package, established on first open. */
@@ -55,30 +65,66 @@ public final class CustomTabLauncher {
         if (context == null || url == null || url.trim().isEmpty()) {
             return false;
         }
-        Uri uri;
+        final Uri uri;
         try {
             uri = Uri.parse(url);
         } catch (Exception e) {
             Log.e(TAG, "bad url: " + url, e);
             return false;
         }
+
+        final Context target = (MainActivity.activeActivity != null)
+                ? MainActivity.activeActivity
+                : context;
+
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return doOpen(target, uri);
+        } else {
+            final boolean[] success = new boolean[1];
+            final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        success[0] = doOpen(target, uri);
+                    } finally {
+                        latch.countDown();
+                    }
+                }
+            });
+            try {
+                latch.await(3, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+            }
+            return success[0];
+        }
+    }
+
+    private boolean doOpen(Context context, Uri uri) {
+        // 1. Try known browsers with direct launch (Chrome first, etc.)
         for (String pkg : CHROME_PACKAGES) {
             if (!PackageInspector.isPackageInstalled(context.getPackageManager(), pkg)) {
                 continue;
             }
-            // Reliable path first: a plain Chrome tab. Chrome 100+ drops a
-            // Custom Tab whose SESSION binder is missing/invalid, and the
-            // service bind is async, so launching the custom tab first can
-            // swallow the navigation entirely. The plain tab opens every time;
-            // the custom tab is only a fallback if that start fails.
             if (startPlainChrome(context, pkg, uri)) {
                 return true;
+            }
+        }
+        // 2. Try system default browser (handles user preferred browser)
+        if (openDefault(context, uri)) {
+            return true;
+        }
+        // 3. Try custom tab bind fallback
+        for (String pkg : CHROME_PACKAGES) {
+            if (!PackageInspector.isPackageInstalled(context.getPackageManager(), pkg)) {
+                continue;
             }
             if (openCustomTab(context, pkg, uri)) {
                 return true;
             }
         }
-        return openDefault(context, uri);
+        // 4. Fallback to chooser
+        return openChooser(context, uri);
     }
 
     /** Opens as a Custom Tab in {@code pkg}; falls back to a plain tab there. */
@@ -182,24 +228,42 @@ public final class CustomTabLauncher {
 
     private boolean startPlainChrome(Context context, String pkg, Uri uri) {
         Intent view = new Intent(Intent.ACTION_VIEW, uri);
+        view.addCategory(Intent.CATEGORY_BROWSABLE);
         view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         view.setPackage(pkg);
         try {
             context.startActivity(view);
-            Log.i(TAG, "opened plain Chrome tab pkg=" + pkg + " url=" + uri);
+            Log.i(TAG, "opened browser pkg=" + pkg + " url=" + uri);
             return true;
         } catch (Exception e) {
-            Log.w(TAG, "plain Chrome tab failed pkg=" + pkg, e);
+            Log.w(TAG, "browser launch failed pkg=" + pkg + ": " + e.getMessage());
             return false;
         }
     }
 
     private boolean openDefault(Context context, Uri uri) {
         Intent view = new Intent(Intent.ACTION_VIEW, uri);
+        view.addCategory(Intent.CATEGORY_BROWSABLE);
         view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             context.startActivity(view);
             Log.i(TAG, "opened default browser url=" + uri);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "openDefault failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean openChooser(Context context, Uri uri) {
+        Intent view = new Intent(Intent.ACTION_VIEW, uri);
+        view.addCategory(Intent.CATEGORY_BROWSABLE);
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        Intent chooser = Intent.createChooser(view, "Open in browser");
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            context.startActivity(chooser);
+            Log.i(TAG, "opened browser chooser url=" + uri);
             return true;
         } catch (Exception e) {
             Log.e(TAG, "no browser available for url: " + uri, e);

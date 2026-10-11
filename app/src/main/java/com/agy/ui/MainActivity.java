@@ -50,6 +50,8 @@ public class MainActivity extends Activity
     private static final long SPLASH_TIMEOUT_MS = 45000;
     private static final long POLL_INTERVAL_MS = 50;
 
+    public static volatile MainActivity activeActivity;
+
     private ValueCallback<Uri[]> filePathCallback;
 
     private ThemeManager themeManager;
@@ -99,6 +101,15 @@ public class MainActivity extends Activity
                     splash.showLoading();
                 }
                 webViewHost.loadApp();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (appLoaded && !splash.isFatalShown()) {
+                            Log.w(TAG, "watchdog: auto-dismissing splash after timeout");
+                            dismissSplash();
+                        }
+                    }
+                }, 10000);
             }
             return;
         }
@@ -111,6 +122,7 @@ public class MainActivity extends Activity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        activeActivity = this;
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
 
@@ -168,6 +180,13 @@ public class MainActivity extends Activity
         splashDeadline = System.currentTimeMillis() + SPLASH_TIMEOUT_MS;
         splash.showLoading();
         CoreServiceLauncher.stop(this);
+        try {
+            java.io.File marker = new java.io.File(runtimeManager.getRuntimeDir(), com.agy.runtime.RuntimePaths.RUNTIME_MARKER);
+            if (marker.exists()) {
+                marker.delete();
+            }
+        } catch (Exception ignored) {
+        }
         handler.postDelayed(this::startCoreService, 400);
     }
 
@@ -201,6 +220,9 @@ public class MainActivity extends Activity
 
     @Override
     protected void onDestroy() {
+        if (activeActivity == this) {
+            activeActivity = null;
+        }
         AppLifecycle.destroy(handler);
         super.onDestroy();
     }
@@ -243,6 +265,7 @@ public class MainActivity extends Activity
     @Override
     protected void onResume() {
         super.onResume();
+        activeActivity = this;
         if (webViewHost != null) {
             AppLifecycle.resume(webViewHost.getWebView());
         }

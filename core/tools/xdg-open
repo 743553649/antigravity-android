@@ -15,9 +15,18 @@ URL="$1"
 
 echo "AGY_OPEN_URL=$URL"
 
-if [ -n "$TMPDIR" ] && [ -d "$TMPDIR" ]; then
-  printf '%s\n' "$URL" >> "$TMPDIR/agy-open-url" 2>/dev/null || true
-fi
+# Fallback channel: write URL to all known app-private dirs
+for dir in "$TMPDIR" "$HOME" "$HOME/../cache" /data/user/0/com.agy/cache /data/data/com.agy/cache /data/user/0/com.agy/files /data/data/com.agy/files; do
+  if [ -n "$dir" ] && [ -d "$dir" ]; then
+    printf '%s\n' "$URL" >> "$dir/agy-open-url" 2>/dev/null || true
+  fi
+done
+
+for logdir in "$HOME/logs" /data/user/0/com.agy/files/logs /data/data/com.agy/files/logs; do
+  if [ -d "$logdir" ]; then
+    printf '[agy-shim] opening URL: %s\n' "$URL" >> "$logdir/core.log" 2>/dev/null || true
+  fi
+done
 
 if command -v termux-open >/dev/null 2>&1; then
   termux-open "$URL" >/dev/null 2>&1 && exit 0

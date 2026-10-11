@@ -35,6 +35,9 @@ public final class SplashController {
         this.root = root;
         this.view = new WebView(context);
         this.view.setBackgroundColor(Color.TRANSPARENT);
+        android.webkit.WebSettings settings = this.view.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
     }
 
     public WebView view() {

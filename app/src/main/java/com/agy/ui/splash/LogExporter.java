@@ -131,6 +131,18 @@ public final class LogExporter {
                 }
             }
 
+            if (savedFile == null) {
+                File appExternal = context.getExternalFilesDir(null);
+                if (appExternal != null && (appExternal.exists() || appExternal.mkdirs())) {
+                    File target = new File(appExternal, "antigravity-core.log");
+                    try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(target), UTF8)) {
+                        writer.write(report);
+                        savedFile = target;
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+
             if (savedFile != null) {
                 Toast.makeText(context, "Logs saved to " + savedFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
             } else {

@@ -36,21 +36,30 @@ public final class PopupWindowHandler {
                 String url = request != null && request.getUrl() != null
                         ? request.getUrl().toString() : null;
                 Log.i(TAG, "popup shouldOverrideUrlLoading url=" + url);
-                return oauth.intercept(context, url);
+                if (url != null && !url.isEmpty() && !url.equals("about:blank")) {
+                    oauth.openInBrowser(context, url);
+                    return true;
+                }
+                return false;
             }
 
             @Override
             @SuppressWarnings("deprecation")
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
                 Log.i(TAG, "popup shouldOverrideUrlLoading(deprecated) url=" + url);
-                return oauth.intercept(context, url);
+                if (url != null && !url.isEmpty() && !url.equals("about:blank")) {
+                    oauth.openInBrowser(context, url);
+                    return true;
+                }
+                return false;
             }
 
             @Override
             public void onPageStarted(WebView v, String url, Bitmap favicon) {
-                if (oauth.intercept(context, url)) {
-                    Log.i(TAG, "popup onPageStarted stopped auth url=" + url);
+                if (url != null && !url.isEmpty() && !url.equals("about:blank")) {
+                    Log.i(TAG, "popup onPageStarted opened in browser url=" + url);
                     v.stopLoading();
+                    oauth.openInBrowser(context, url);
                 }
             }
         });

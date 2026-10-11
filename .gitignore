@@ -35,3 +35,7 @@ Thumbs.db
 *.key
 *-token
 jetski-standalone-oauth-token
+
+# Local build tools
+tools/*.exe
+tools/uber-apk-signer.jar

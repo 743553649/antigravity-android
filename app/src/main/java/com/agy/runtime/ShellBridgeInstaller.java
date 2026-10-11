@@ -28,7 +28,8 @@ public final class ShellBridgeInstaller {
     private static final String TAG = "ShellBridgeInstaller";
 
     private static final String[] OPEN_URL_SHIMS = {
-            "xdg-open", "open_helper", "sensible-browser",
+            "xdg-open", "open", "open_helper", "sensible-browser",
+            "x-www-browser", "gnome-open", "google-chrome", "chrome", "chromium"
     };
 
     /** Records which prefix the bulk bridges were generated for. Bump when the
@@ -37,6 +38,17 @@ public final class ShellBridgeInstaller {
     private static final int BRIDGE_FORMAT = 1;
 
     private ShellBridgeInstaller() {
+    }
+
+    public static synchronized void installOpenUrlShims(File bin) {
+        if (bin == null) return;
+        if (!bin.isDirectory() && !bin.mkdirs() && !bin.isDirectory()) {
+            Log.w(TAG, "cannot create " + bin + "; skipping open-url shims");
+            return;
+        }
+        for (String opener : OPEN_URL_SHIMS) {
+            writeOpenUrlShim(new File(bin, opener));
+        }
     }
 
     public static synchronized void install(RuntimeManager rm) {
@@ -55,6 +67,9 @@ public final class ShellBridgeInstaller {
             Log.w(TAG, "cannot create " + bin + "; skipping shell bridges");
             return;
         }
+        // Always ensure open-url shims exist FIRST, even before prefix is installed
+        installOpenUrlShims(bin);
+
         File prefix = EnvInstaller.prefix(rm.appContext());
         File prefixBash = new File(prefix, "bin/bash");
         if (!prefixBash.isFile()) {
@@ -63,11 +78,6 @@ public final class ShellBridgeInstaller {
         }
         writeBridge(new File(bin, "bash"), prefix, "bash");
         writeBridge(new File(bin, "sh"), prefix, "bash");
-        // Always keep the AGY opener shim in place (it may have been clobbered
-        // by a previous bridge pass or survive from the extracted runtime).
-        for (String opener : OPEN_URL_SHIMS) {
-            writeOpenUrlShim(new File(bin, opener));
-        }
         File[] prefixTools = new File(prefix, "bin").listFiles();
         int toolCount = countFiles(prefixTools);
         File marker = new File(bin, BRIDGE_MARKER);
@@ -145,14 +155,21 @@ public final class ShellBridgeInstaller {
     private static void writeOpenUrlShim(File bridge) {
         StringBuilder sb = new StringBuilder();
         sb.append("#!/system/bin/sh\n");
-        sb.append("# AGY URL opener shim (xdg-open / open_helper / sensible-browser).\n");
+        sb.append("# AGY URL opener shim (xdg-open / open / sensible-browser).\n");
         sb.append("URL=\"$1\"\n");
         sb.append("[ -z \"$URL\" ] && URL=\"$2\"\n");
         sb.append("[ -z \"$URL\" ] && exit 0\n");
         sb.append("echo \"AGY_OPEN_URL=$URL\"\n");
-        sb.append("if [ -n \"$TMPDIR\" ] && [ -d \"$TMPDIR\" ]; then\n");
-        sb.append("  printf '%s\\n' \"$URL\" >> \"$TMPDIR/agy-open-url\" 2>/dev/null || true\n");
-        sb.append("fi\n");
+        sb.append("for dir in \"$TMPDIR\" \"$HOME\" \"$HOME/../cache\" /data/user/0/com.agy/cache /data/data/com.agy/cache /data/user/0/com.agy/files /data/data/com.agy/files; do\n");
+        sb.append("  if [ -n \"$dir\" ] && [ -d \"$dir\" ]; then\n");
+        sb.append("    printf '%s\\n' \"$URL\" >> \"$dir/agy-open-url\" 2>/dev/null || true\n");
+        sb.append("  fi\n");
+        sb.append("done\n");
+        sb.append("for logdir in \"$HOME/logs\" /data/user/0/com.agy/files/logs /data/data/com.agy/files/logs; do\n");
+        sb.append("  if [ -d \"$logdir\" ]; then\n");
+        sb.append("    printf '[agy-shim] opening URL: %s\\n' \"$URL\" >> \"$logdir/core.log\" 2>/dev/null || true\n");
+        sb.append("  fi\n");
+        sb.append("done\n");
         sb.append("if command -v termux-open >/dev/null 2>&1; then\n");
         sb.append("  termux-open \"$URL\" >/dev/null 2>&1 && exit 0\n");
         sb.append("fi\n");

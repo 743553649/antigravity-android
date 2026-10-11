@@ -6,6 +6,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import com.agy.oauth.OAuthManager;
+import com.agy.ui.MainActivity;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -13,7 +14,9 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The core execs core/tools/xdg-open, but swallows its stdout, so the
@@ -33,18 +36,22 @@ public final class OpenUrlWatcher {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private volatile boolean stopping;
-    /** Lines already handled in the fallback file; seeded on start. */
-    private volatile int openUrlsSeen = 0;
+    private volatile String lastDispatchedUrl = "";
+    private volatile long lastDispatchedTime = 0;
     private Thread watcher;
 
     public OpenUrlWatcher(Context context) {
         this.appContext = context.getApplicationContext();
     }
 
-    /** Seeds the file offset then starts the daemon tail thread. */
+    /** Cleans up stale files and starts the daemon tail thread. */
     public void start() {
-        openUrlsSeen = readLines().size();
-        Log.i(TAG, "open-url watcher seeded at " + openUrlsSeen + " line(s)");
+        for (File f : candidateFiles()) {
+            if (f.isFile()) {
+                f.delete();
+            }
+        }
+        Log.i(TAG, "open-url watcher started");
         watcher = new Thread(this::watchFile, "CoreOpenUrlWatch");
         watcher.setDaemon(true);
         watcher.start();
@@ -63,51 +70,67 @@ public final class OpenUrlWatcher {
         if (at >= 0) {
             String url = line.substring(at + OPEN_URL_PREFIX.length()).trim();
             if (!url.isEmpty()) {
+                long now = System.currentTimeMillis();
+                if (url.equals(lastDispatchedUrl) && (now - lastDispatchedTime) < 1500) {
+                    return;
+                }
+                lastDispatchedUrl = url;
+                lastDispatchedTime = now;
                 openUrl(url);
             }
         }
     }
 
-    private File openUrlFile() {
-        return new File(appContext.getCacheDir(), OPEN_URL_FILE);
+    private List<File> candidateFiles() {
+        List<File> files = new ArrayList<>();
+        File cache = appContext.getCacheDir();
+        if (cache != null) {
+            files.add(new File(cache, OPEN_URL_FILE));
+        }
+        File fDir = appContext.getFilesDir();
+        if (fDir != null) {
+            files.add(new File(fDir, OPEN_URL_FILE));
+        }
+        files.add(new File("/data/user/0/com.agy/cache", OPEN_URL_FILE));
+        files.add(new File("/data/data/com.agy/cache", OPEN_URL_FILE));
+        files.add(new File("/data/user/0/com.agy/files", OPEN_URL_FILE));
+        files.add(new File("/data/data/com.agy/files", OPEN_URL_FILE));
+        return files;
     }
 
-    /** Non-empty lines currently in the fallback opener file (append-only). */
-    private List<String> readLines() {
-        List<String> lines = new ArrayList<>();
-        File file = openUrlFile();
-        if (!file.isFile()) {
-            return lines;
-        }
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new FileInputStream(file), Charset.forName("UTF-8")))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                line = line.trim();
-                if (!line.isEmpty()) {
-                    lines.add(line);
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "cannot read " + OPEN_URL_FILE, e);
-        }
-        return lines;
-    }
-
-    /** Polls the fallback file and opens URLs appended after service start. */
+    /** Polls the fallback files and consumes URLs appended by the opener shim. */
     private void watchFile() {
         while (!stopping) {
-            List<String> lines = readLines();
-            if (lines.size() < openUrlsSeen) {
-                // Truncated/rewritten: resync without replaying history.
-                openUrlsSeen = lines.size();
-            } else if (lines.size() > openUrlsSeen) {
-                int fresh = lines.size() - openUrlsSeen;
-                Log.i(TAG, "open-url file: " + fresh + " new URL(s)");
-                for (int i = openUrlsSeen; i < lines.size(); i++) {
-                    openUrl(lines.get(i));
+            for (File file : candidateFiles()) {
+                if (!file.isFile() || file.length() == 0) {
+                    continue;
                 }
-                openUrlsSeen = lines.size();
+                List<String> lines = new ArrayList<>();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                        new FileInputStream(file), Charset.forName("UTF-8")))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        line = line.trim();
+                        if (!line.isEmpty()) {
+                            lines.add(line);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "cannot read " + file, e);
+                }
+                // Immediately consume / clear the file so subsequent requests are seen
+                file.delete();
+
+                for (String url : lines) {
+                    long now = System.currentTimeMillis();
+                    if (url.equals(lastDispatchedUrl) && (now - lastDispatchedTime) < 1500) {
+                        continue;
+                    }
+                    lastDispatchedUrl = url;
+                    lastDispatchedTime = now;
+                    Log.i(TAG, "consumed open-url file request: " + url);
+                    openUrl(url);
+                }
             }
             sleep(OPEN_URL_POLL_MS);
         }
@@ -127,7 +150,10 @@ public final class OpenUrlWatcher {
         mainHandler.post(new Runnable() {
             @Override
             public void run() {
-                boolean opened = oauth.openInBrowser(appContext, url);
+                Context target = (MainActivity.activeActivity != null)
+                        ? MainActivity.activeActivity
+                        : appContext;
+                boolean opened = oauth.openInBrowser(target, url);
                 if (!opened) {
                     Log.w(TAG, "no browser accepted the url: " + url);
                 }

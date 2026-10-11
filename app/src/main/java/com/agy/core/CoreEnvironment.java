@@ -40,7 +40,21 @@ public final class CoreEnvironment {
         String godebug = env.get("GODEBUG");
         env.put("GODEBUG", godebug == null || godebug.isEmpty()
                 ? "netdns=go" : godebug + ",netdns=go");
+        // Configure browser and desktop environment so core OAuth/open tools find the browser
+        File xdgOpen = new File(bin, "xdg-open");
+        env.put("BROWSER", xdgOpen.getAbsolutePath());
+        env.put("DISPLAY", ":0");
+        env.put("WAYLAND_DISPLAY", "wayland-0");
+        env.put("XDG_CURRENT_DESKTOP", "X-Generic");
+        env.put("XDG_DATA_DIRS", rm.getRuntimeDir().getAbsolutePath());
+        env.put("XDG_DATA_HOME", new File(files, ".local/share").getAbsolutePath());
+        env.put("XDG_CONFIG_HOME", new File(files, ".config").getAbsolutePath());
         // The glibc loader resolves libraries via --library-path; keep bionic's out of the way.
         env.remove("LD_LIBRARY_PATH");
+        // Support isolated LSE atomic emulation via LD_PRELOAD on ARMv8.0-A CPUs (Snapdragon 410/625/685/Cortex-A53)
+        File lseCompat = new File(rm.getLibDir(), "liblse_compat.so");
+        if (lseCompat.isFile()) {
+            env.put("LD_PRELOAD", lseCompat.getAbsolutePath());
+        }
     }
 }
