@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The core execs core/tools/xdg-open, but swallows its stdout, so the
@@ -29,7 +31,9 @@ public final class OpenUrlWatcher {
     private static final String OPEN_URL_PREFIX = "AGY_OPEN_URL=";
     /** Fallback channel written by core/tools/xdg-open (append-only). */
     private static final String OPEN_URL_FILE = "agy-open-url";
-    private static final long OPEN_URL_POLL_MS = 500;
+    private static final long OPEN_URL_POLL_MS = 150;
+    private static final Pattern URL_PATTERN =
+            Pattern.compile("https?://[\\w\\-\\.\\~:\\?\\#\\[\\]\\@\\!\\$\\&\\'\\(\\)\\*\\+,;=%/]+");
 
     private final Context appContext;
     private final OAuthManager oauth = new OAuthManager();
@@ -61,7 +65,7 @@ public final class OpenUrlWatcher {
         stopping = true;
     }
 
-    /** Detects the stdout OPEN_URL prefix; called by the stream reader. */
+    /** Detects the stdout OPEN_URL prefix or logged auth URLs; called by the stream reader. */
     public void handleStreamLine(String line) {
         if (line == null) {
             return;
@@ -69,33 +73,67 @@ public final class OpenUrlWatcher {
         int at = line.indexOf(OPEN_URL_PREFIX);
         if (at >= 0) {
             String url = line.substring(at + OPEN_URL_PREFIX.length()).trim();
-            if (!url.isEmpty()) {
-                long now = System.currentTimeMillis();
-                if (url.equals(lastDispatchedUrl) && (now - lastDispatchedTime) < 1500) {
-                    return;
+            dispatchIfValid(url);
+            return;
+        }
+        // Fallback: detect OAuth or login URLs emitted by language_server / openBrowser
+        if (line.contains("accounts.google.com") || line.contains("oauth2")
+                || (line.contains("/auth/callback") && line.contains("http"))) {
+            Matcher m = URL_PATTERN.matcher(line);
+            while (m.find()) {
+                String candidate = m.group();
+                if (candidate.startsWith("http://") || candidate.startsWith("https://")) {
+                    if (candidate.contains("accounts.google.com") || candidate.contains("oauth2")
+                            || candidate.contains("auth")) {
+                        Log.i(TAG, "stream regex detected auth URL: " + candidate);
+                        dispatchIfValid(candidate);
+                    }
                 }
-                lastDispatchedUrl = url;
-                lastDispatchedTime = now;
-                openUrl(url);
             }
         }
     }
 
+    private void dispatchIfValid(String url) {
+        if (url == null) return;
+        url = url.trim();
+        if (url.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        if (url.equals(lastDispatchedUrl) && (now - lastDispatchedTime) < 1500) {
+            return;
+        }
+        lastDispatchedUrl = url;
+        lastDispatchedTime = now;
+        Log.i(TAG, "dispatching external URL: " + url);
+        openUrl(url);
+    }
+
     private List<File> candidateFiles() {
+        Set<String> seen = new HashSet<>();
         List<File> files = new ArrayList<>();
         File cache = appContext.getCacheDir();
         if (cache != null) {
-            files.add(new File(cache, OPEN_URL_FILE));
+            addCandidate(files, seen, new File(cache, OPEN_URL_FILE));
         }
         File fDir = appContext.getFilesDir();
         if (fDir != null) {
-            files.add(new File(fDir, OPEN_URL_FILE));
+            addCandidate(files, seen, new File(fDir, OPEN_URL_FILE));
         }
-        files.add(new File("/data/user/0/com.agy/cache", OPEN_URL_FILE));
-        files.add(new File("/data/data/com.agy/cache", OPEN_URL_FILE));
-        files.add(new File("/data/user/0/com.agy/files", OPEN_URL_FILE));
-        files.add(new File("/data/data/com.agy/files", OPEN_URL_FILE));
+        String pkg = appContext.getPackageName();
+        addCandidate(files, seen, new File("/data/user/0/" + pkg + "/cache", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/data/" + pkg + "/cache", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/user/0/" + pkg + "/files", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/data/" + pkg + "/files", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/user/0/com.agy/cache", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/data/com.agy/cache", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/user/0/com.agy/files", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/data/com.agy/files", OPEN_URL_FILE));
         return files;
+    }
+
+    private static void addCandidate(List<File> files, Set<String> seen, File f) {
+        if (f != null && seen.add(f.getAbsolutePath())) {
+            files.add(f);
+        }
     }
 
     /** Polls the fallback files and consumes URLs appended by the opener shim. */
@@ -122,14 +160,7 @@ public final class OpenUrlWatcher {
                 file.delete();
 
                 for (String url : lines) {
-                    long now = System.currentTimeMillis();
-                    if (url.equals(lastDispatchedUrl) && (now - lastDispatchedTime) < 1500) {
-                        continue;
-                    }
-                    lastDispatchedUrl = url;
-                    lastDispatchedTime = now;
-                    Log.i(TAG, "consumed open-url file request: " + url);
-                    openUrl(url);
+                    dispatchIfValid(url);
                 }
             }
             sleep(OPEN_URL_POLL_MS);

@@ -156,6 +156,8 @@ public final class ShellBridgeInstaller {
         StringBuilder sb = new StringBuilder();
         sb.append("#!/system/bin/sh\n");
         sb.append("# AGY URL opener shim (xdg-open / open / sensible-browser).\n");
+        sb.append("unset LD_PRELOAD\n");
+        sb.append("unset LD_LIBRARY_PATH\n");
         sb.append("URL=\"$1\"\n");
         sb.append("[ -z \"$URL\" ] && URL=\"$2\"\n");
         sb.append("[ -z \"$URL\" ] && exit 0\n");
@@ -163,6 +165,7 @@ public final class ShellBridgeInstaller {
         sb.append("for dir in \"$TMPDIR\" \"$HOME\" \"$HOME/../cache\" /data/user/0/com.agy/cache /data/data/com.agy/cache /data/user/0/com.agy/files /data/data/com.agy/files; do\n");
         sb.append("  if [ -n \"$dir\" ] && [ -d \"$dir\" ]; then\n");
         sb.append("    printf '%s\\n' \"$URL\" >> \"$dir/agy-open-url\" 2>/dev/null || true\n");
+        sb.append("    chmod 666 \"$dir/agy-open-url\" 2>/dev/null || true\n");
         sb.append("  fi\n");
         sb.append("done\n");
         sb.append("for logdir in \"$HOME/logs\" /data/user/0/com.agy/files/logs /data/data/com.agy/files/logs; do\n");

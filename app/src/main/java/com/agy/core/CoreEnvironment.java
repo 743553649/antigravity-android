@@ -51,10 +51,11 @@ public final class CoreEnvironment {
         env.put("XDG_CONFIG_HOME", new File(files, ".config").getAbsolutePath());
         // The glibc loader resolves libraries via --library-path; keep bionic's out of the way.
         env.remove("LD_LIBRARY_PATH");
-        // Support isolated LSE atomic emulation via LD_PRELOAD on ARMv8.0-A CPUs (Snapdragon 410/625/685/Cortex-A53)
-        File lseCompat = new File(rm.getLibDir(), "liblse_compat.so");
-        if (lseCompat.isFile()) {
-            env.put("LD_PRELOAD", lseCompat.getAbsolutePath());
-        }
+        // Do NOT export LD_PRELOAD into the process environment!
+        // liblse_compat.so is a GLIBC library; exporting it in env causes Bionic's
+        // dynamic linker to crash when executing /system/bin/sh (xdg-open, bridges, termux).
+        // RuntimeManager.coreCommand() already preloads it into language_server via the
+        // glibc loader's CLI argument: --preload <path>/liblse_compat.so.
+        env.remove("LD_PRELOAD");
     }
 }
