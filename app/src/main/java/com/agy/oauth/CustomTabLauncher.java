@@ -4,6 +4,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
@@ -17,18 +19,18 @@ import com.agy.ui.MainActivity;
 import com.agy.util.PackageInspector;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Opens OAuth URLs as a real Chrome Custom Tab, with no androidx.browser
- * dependency.
+ * Opens OAuth URLs in an external web browser.
  *
- * A plain Chrome tab is opened first because it is synchronous and reliable;
- * this matches the original working behavior. A branded Custom Tab (a normal
- * ACTION_VIEW carrying a SESSION binder from Chrome's CustomTabsService) is
- * only attempted if the plain launch fails, since the service bind is async
- * and a missing/invalid session binder makes Chrome drop the tab. The final
- * fallback is any browser.
+ * Direct browser launch with an explicit package is attempted first because:
+ * 1. Implicit intents for accounts.google.com are hijacked by com.google.android.gms
+ *    (Google Play Services) which silently swallows desktop OAuth redirect URIs.
+ * 2. Explicit package launches bypass GMS domain verification and force the real
+ *    web browser (Chrome, Mi Browser, Firefox, Yandex, etc.) to handle the URL.
+ * 3. Custom Tab service binding is attempted as a secondary enhancement.
  */
 public final class CustomTabLauncher {
 
@@ -39,8 +41,7 @@ public final class CustomTabLauncher {
     private static final String SERVICE_TOKEN =
             "android.support.customtabs.ICustomTabsService";
 
-    // AIDL transaction codes for ICustomTabsService (FIRST_CALL_TRANSACTION = 1):
-    // warmup=1, newSession=2, mayLaunchUrl=3 (see ICustomTabsService.aidl).
+    // AIDL transaction codes for ICustomTabsService:
     private static final int TX_WARMUP = 1;
     private static final int TX_NEW_SESSION = 2;
 
@@ -52,14 +53,75 @@ public final class CustomTabLauncher {
             "com.mi.globalbrowser",
             "com.android.browser",
             "org.mozilla.firefox",
+            "org.mozilla.fenix",
             "com.microsoft.emmx",
             "com.opera.browser",
+            "com.opera.mini.native",
+            "com.opera.gx",
             "com.brave.browser",
-            "com.sec.android.app.sbrowser"
+            "com.sec.android.app.sbrowser",
+            "com.yandex.browser",
+            "com.yandex.browser.beta",
+            "com.duckduckgo.mobile.android",
+            "com.huawei.browser",
+            "com.vivaldi.browser"
     };
 
     /** Session binder per browser package, established on first open. */
     private static final Map<String, IBinder> SESSIONS = new HashMap<>();
+
+    /**
+     * Resolves the user's default web browser package using a neutral HTTPS URL,
+     * specifically filtering out Google Play Services and system disambiguation.
+     */
+    public static String resolveDefaultBrowserPackage(Context context) {
+        if (context == null) return null;
+        PackageManager pm = context.getPackageManager();
+        if (pm == null) return null;
+
+        Intent testIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"));
+        testIntent.addCategory(Intent.CATEGORY_BROWSABLE);
+
+        // 1. Check user's explicitly chosen default browser
+        try {
+            ResolveInfo defaultResolve = pm.resolveActivity(testIntent, PackageManager.MATCH_DEFAULT_ONLY);
+            if (defaultResolve != null && defaultResolve.activityInfo != null) {
+                String pkg = defaultResolve.activityInfo.packageName;
+                if (isRealBrowserPackage(pkg)) {
+                    return pkg;
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "resolveActivity failed: " + t.getMessage());
+        }
+
+        // 2. Query all activities capable of browsing web URLs
+        try {
+            List<ResolveInfo> candidates = pm.queryIntentActivities(testIntent, 0);
+            if (candidates != null) {
+                for (ResolveInfo info : candidates) {
+                    if (info != null && info.activityInfo != null) {
+                        String pkg = info.activityInfo.packageName;
+                        if (isRealBrowserPackage(pkg)) {
+                            return pkg;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "queryIntentActivities failed: " + t.getMessage());
+        }
+
+        return null;
+    }
+
+    private static boolean isRealBrowserPackage(String pkg) {
+        if (pkg == null || pkg.isEmpty()) return false;
+        if ("android".equals(pkg)) return false;
+        if ("com.google.android.gms".equals(pkg)) return false;
+        if ("com.google.android.googlequicksearchbox".equals(pkg)) return false;
+        return true;
+    }
 
     public boolean openInBrowser(Context context, String url) {
         if (context == null || url == null || url.trim().isEmpty()) {
@@ -67,7 +129,7 @@ public final class CustomTabLauncher {
         }
         final Uri uri;
         try {
-            uri = Uri.parse(url);
+            uri = Uri.parse(url.trim());
         } catch (Exception e) {
             Log.e(TAG, "bad url: " + url, e);
             return false;
@@ -101,23 +163,33 @@ public final class CustomTabLauncher {
     }
 
     private boolean doOpen(Context context, Uri uri) {
-        // 1. Try system default browser FIRST (implicit Intent, no package lock).
-        // This respects the user's preferred browser (Chrome, Mi Browser, Yandex, etc.)
-        // and avoids MIUI / OEM explicit-package background launch restrictions.
-        if (openDefault(context, uri)) {
-            return true;
-        }
-        // 2. Fallback: try known browsers with direct launch (Chrome, Mi Browser, etc.)
-        for (String pkg : CHROME_PACKAGES) {
-            if (!PackageInspector.isPackageInstalled(context.getPackageManager(), pkg)) {
-                continue;
+        // 1. Resolve and target the user's actual default browser explicitly.
+        // Explicit package lock prevents com.google.android.gms from hijacking accounts.google.com!
+        String defaultPkg = resolveDefaultBrowserPackage(context);
+        if (defaultPkg != null) {
+            Log.i(TAG, "targeting resolved default browser: " + defaultPkg);
+            if (startPlainBrowser(context, defaultPkg, uri)) {
+                return true;
             }
-            if (startPlainChrome(context, pkg, uri)) {
+            if (openCustomTab(context, defaultPkg, uri)) {
                 return true;
             }
         }
-        // 3. Fallback: try custom tab bind
+
+        // 2. Iterate known browser packages with explicit package targeting
         for (String pkg : CHROME_PACKAGES) {
+            if (pkg.equals(defaultPkg)) continue;
+            if (!PackageInspector.isPackageInstalled(context.getPackageManager(), pkg)) {
+                continue;
+            }
+            if (startPlainBrowser(context, pkg, uri)) {
+                return true;
+            }
+        }
+
+        // 3. Try custom tab bind on installed packages
+        for (String pkg : CHROME_PACKAGES) {
+            if (pkg.equals(defaultPkg)) continue;
             if (!PackageInspector.isPackageInstalled(context.getPackageManager(), pkg)) {
                 continue;
             }
@@ -125,8 +197,33 @@ public final class CustomTabLauncher {
                 return true;
             }
         }
-        // 4. Final fallback: system chooser
-        return openChooser(context, uri);
+
+        // 4. Try system chooser
+        if (openChooser(context, uri)) {
+            return true;
+        }
+
+        // 5. Final fallback: implicit intent
+        return openDefault(context, uri);
+    }
+
+    private boolean startPlainBrowser(Context context, String pkg, Uri uri) {
+        Intent view = new Intent(Intent.ACTION_VIEW, uri);
+        view.addCategory(Intent.CATEGORY_BROWSABLE);
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        if (pkg != null && !pkg.isEmpty()) {
+            view.setPackage(pkg);
+        }
+        try {
+            context.startActivity(view);
+            Log.i(TAG, "opened browser pkg=" + pkg + " url=" + uri);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "browser launch failed pkg=" + pkg + ": " + e.getMessage());
+            return false;
+        }
     }
 
     /** Opens as a Custom Tab in {@code pkg}; falls back to a plain tab there. */
@@ -146,7 +243,7 @@ public final class CustomTabLauncher {
                     }
                     startView(context, pkg, uri, s);
                 } else {
-                    startPlainChrome(context, pkg, uri);
+                    startPlainBrowser(context, pkg, uri);
                 }
             }
 
@@ -161,7 +258,7 @@ public final class CustomTabLauncher {
             boolean bound = context.bindService(service, connection, Context.BIND_AUTO_CREATE);
             Log.i(TAG, "bind CustomTabsService pkg=" + pkg + " bound=" + bound);
             if (!bound) {
-                return startPlainChrome(context, pkg, uri);
+                return startPlainBrowser(context, pkg, uri);
             }
             return true;
         } catch (Exception e) {
@@ -187,7 +284,6 @@ public final class CustomTabLauncher {
             Binder callback = new Binder() {
                 @Override
                 protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) {
-                    // Opaque session handle: acknowledge every callback.
                     return true;
                 }
             };
@@ -216,7 +312,7 @@ public final class CustomTabLauncher {
         extras.putInt(OAuthConstants.EXTRA_TOOLBAR_COLOR, OAuthConstants.TOOLBAR_COLOR_DARK);
         view.putExtras(extras);
         view.putExtra(OAuthConstants.EXTRA_APP_ID, context.getPackageName());
-        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         view.setPackage(pkg);
         try {
             context.startActivity(view);
@@ -228,25 +324,10 @@ public final class CustomTabLauncher {
         }
     }
 
-    private boolean startPlainChrome(Context context, String pkg, Uri uri) {
-        Intent view = new Intent(Intent.ACTION_VIEW, uri);
-        view.addCategory(Intent.CATEGORY_BROWSABLE);
-        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        view.setPackage(pkg);
-        try {
-            context.startActivity(view);
-            Log.i(TAG, "opened browser pkg=" + pkg + " url=" + uri);
-            return true;
-        } catch (Exception e) {
-            Log.w(TAG, "browser launch failed pkg=" + pkg + ": " + e.getMessage());
-            return false;
-        }
-    }
-
     private boolean openDefault(Context context, Uri uri) {
         Intent view = new Intent(Intent.ACTION_VIEW, uri);
         view.addCategory(Intent.CATEGORY_BROWSABLE);
-        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         try {
             context.startActivity(view);
             Log.i(TAG, "opened default browser url=" + uri);
@@ -260,7 +341,7 @@ public final class CustomTabLauncher {
     private boolean openChooser(Context context, Uri uri) {
         Intent view = new Intent(Intent.ACTION_VIEW, uri);
         view.addCategory(Intent.CATEGORY_BROWSABLE);
-        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         Intent chooser = Intent.createChooser(view, "Open in browser");
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {

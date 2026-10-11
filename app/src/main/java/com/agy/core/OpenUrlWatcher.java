@@ -102,11 +102,13 @@ public final class OpenUrlWatcher {
         if (line == null) {
             return;
         }
-        int at = line.indexOf(OPEN_URL_PREFIX);
-        if (at >= 0) {
-            String url = line.substring(at + OPEN_URL_PREFIX.length()).trim();
-            dispatchIfValid(url);
-            return;
+        for (String prefix : new String[]{"AGY_OPEN_URL=", "ANTIGRAVITY_OPEN_URL:", "ANTIGRAVITY_OPEN_URL="}) {
+            int at = line.indexOf(prefix);
+            if (at >= 0) {
+                String url = line.substring(at + prefix.length()).trim();
+                dispatchIfValid(url);
+                return;
+            }
         }
         // Fallback: detect OAuth or login URLs emitted by language_server / openBrowser
         if (line.contains("accounts.google.com") || line.contains("oauth2")
@@ -218,16 +220,26 @@ public final class OpenUrlWatcher {
         if (url == null || url.trim().isEmpty()) {
             return;
         }
-        Log.i(TAG, "open-url -> external browser: " + url);
+        final String cleanUrl = url.trim();
+        Log.i(TAG, "open-url -> external browser: " + cleanUrl);
         mainHandler.post(new Runnable() {
             @Override
             public void run() {
+                // 1. If MainActivity is alive, show the on-screen interactive auth banner
+                if (MainActivity.activeActivity != null) {
+                    MainActivity.activeActivity.showAuthBanner(cleanUrl);
+                }
+
+                // 2. Post high-priority notification with PendingIntent (bypasses OEM background start blocks)
+                com.agy.oauth.AuthNotification.show(appContext, cleanUrl);
+
+                // 3. Attempt direct browser launch
                 Context target = (MainActivity.activeActivity != null)
                         ? MainActivity.activeActivity
                         : appContext;
-                boolean opened = oauth.openInBrowser(target, url);
+                boolean opened = oauth.openInBrowser(target, cleanUrl);
                 if (!opened) {
-                    Log.w(TAG, "no browser accepted the url: " + url);
+                    Log.w(TAG, "no browser accepted the url: " + cleanUrl);
                 }
             }
         });

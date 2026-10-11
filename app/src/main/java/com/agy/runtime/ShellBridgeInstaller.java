@@ -172,6 +172,7 @@ public final class ShellBridgeInstaller {
         sb.append("[ -z \"$URL\" ] && URL=\"$2\"\n");
         sb.append("[ -z \"$URL\" ] && exit 0\n");
         sb.append("echo \"AGY_OPEN_URL=$URL\"\n");
+        sb.append("echo \"ANTIGRAVITY_OPEN_URL: $URL\"\n");
         sb.append("if [ -x /system/bin/am ]; then\n");
         sb.append("  /system/bin/am broadcast -a com.agy.ACTION_OPEN_URL -p ").append(pkg).append(" --es url \"$URL\" >/dev/null 2>&1 || true\n");
         if (!"com.agy".equals(pkg)) {
@@ -193,6 +194,8 @@ public final class ShellBridgeInstaller {
         sb.append("  termux-open \"$URL\" >/dev/null 2>&1 && exit 0\n");
         sb.append("fi\n");
         sb.append("if [ -x /system/bin/am ]; then\n");
+        sb.append("  /system/bin/am start -a android.intent.action.VIEW -p com.android.chrome -d \"$URL\" >/dev/null 2>&1 || \\\n");
+        sb.append("  /system/bin/am start -a android.intent.action.VIEW -p com.mi.globalbrowser -d \"$URL\" >/dev/null 2>&1 || \\\n");
         sb.append("  /system/bin/am start -a android.intent.action.VIEW -d \"$URL\" >/dev/null 2>&1 && exit 0\n");
         sb.append("fi\n");
         sb.append("exit 0\n");
