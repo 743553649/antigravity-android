@@ -1,6 +1,10 @@
 package com.agy.core;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -22,8 +26,8 @@ import java.util.regex.Pattern;
 
 /**
  * The core execs core/tools/xdg-open, but swallows its stdout, so the
- * "AGY_OPEN_URL=" line never reaches the stdout bridge. The shim's fallback
- * file is the only surviving channel: tail it for new URLs.
+ * "AGY_OPEN_URL=" line never reaches the stdout bridge. The shim broadcasts
+ * ACTION_OPEN_URL and appends to fallback files: tail them for new URLs.
  */
 public final class OpenUrlWatcher {
 
@@ -31,7 +35,7 @@ public final class OpenUrlWatcher {
     private static final String OPEN_URL_PREFIX = "AGY_OPEN_URL=";
     /** Fallback channel written by core/tools/xdg-open (append-only). */
     private static final String OPEN_URL_FILE = "agy-open-url";
-    private static final long OPEN_URL_POLL_MS = 150;
+    private static final long OPEN_URL_POLL_MS = 80;
     private static final Pattern URL_PATTERN =
             Pattern.compile("https?://[\\w\\-\\.\\~:\\?\\#\\[\\]\\@\\!\\$\\&\\'\\(\\)\\*\\+,;=%/]+");
 
@@ -44,12 +48,36 @@ public final class OpenUrlWatcher {
     private volatile long lastDispatchedTime = 0;
     private Thread watcher;
 
+    private final BroadcastReceiver openUrlReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
+            String url = intent.getStringExtra("url");
+            if (url != null && !url.trim().isEmpty()) {
+                Log.i(TAG, "broadcast ACTION_OPEN_URL received: " + url);
+                dispatchIfValid(url);
+            }
+        }
+    };
+
     public OpenUrlWatcher(Context context) {
         this.appContext = context.getApplicationContext();
     }
 
     /** Cleans up stale files and starts the daemon tail thread. */
     public void start() {
+        try {
+            IntentFilter filter = new IntentFilter("com.agy.ACTION_OPEN_URL");
+            if (Build.VERSION.SDK_INT >= 33) {
+                appContext.registerReceiver(openUrlReceiver, filter, Context.RECEIVER_EXPORTED);
+            } else {
+                appContext.registerReceiver(openUrlReceiver, filter);
+            }
+            Log.i(TAG, "registered ACTION_OPEN_URL receiver");
+        } catch (Throwable t) {
+            Log.w(TAG, "failed to register ACTION_OPEN_URL receiver: " + t.getMessage());
+        }
+
         for (File f : candidateFiles()) {
             if (f.isFile()) {
                 f.delete();
@@ -63,6 +91,10 @@ public final class OpenUrlWatcher {
 
     public void stop() {
         stopping = true;
+        try {
+            appContext.unregisterReceiver(openUrlReceiver);
+        } catch (Throwable ignored) {
+        }
     }
 
     /** Detects the stdout OPEN_URL prefix or logged auth URLs; called by the stream reader. */
@@ -93,7 +125,7 @@ public final class OpenUrlWatcher {
         }
     }
 
-    private void dispatchIfValid(String url) {
+    public void dispatchIfValid(String url) {
         if (url == null) return;
         url = url.trim();
         if (url.isEmpty()) return;
@@ -118,6 +150,10 @@ public final class OpenUrlWatcher {
         if (fDir != null) {
             addCandidate(files, seen, new File(fDir, OPEN_URL_FILE));
         }
+        File extCache = appContext.getExternalCacheDir();
+        if (extCache != null) {
+            addCandidate(files, seen, new File(extCache, OPEN_URL_FILE));
+        }
         String pkg = appContext.getPackageName();
         addCandidate(files, seen, new File("/data/user/0/" + pkg + "/cache", OPEN_URL_FILE));
         addCandidate(files, seen, new File("/data/data/" + pkg + "/cache", OPEN_URL_FILE));
@@ -127,6 +163,11 @@ public final class OpenUrlWatcher {
         addCandidate(files, seen, new File("/data/data/com.agy/cache", OPEN_URL_FILE));
         addCandidate(files, seen, new File("/data/user/0/com.agy/files", OPEN_URL_FILE));
         addCandidate(files, seen, new File("/data/data/com.agy/files", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/user/0/com.agy.dev/cache", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/data/com.agy.dev/cache", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/user/0/com.agy.dev/files", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/data/com.agy.dev/files", OPEN_URL_FILE));
+        addCandidate(files, seen, new File("/data/local/tmp", OPEN_URL_FILE));
         return files;
     }
 

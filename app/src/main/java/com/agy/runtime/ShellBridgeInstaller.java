@@ -41,13 +41,17 @@ public final class ShellBridgeInstaller {
     }
 
     public static synchronized void installOpenUrlShims(File bin) {
+        installOpenUrlShims(bin, null);
+    }
+
+    public static synchronized void installOpenUrlShims(File bin, android.content.Context context) {
         if (bin == null) return;
         if (!bin.isDirectory() && !bin.mkdirs() && !bin.isDirectory()) {
             Log.w(TAG, "cannot create " + bin + "; skipping open-url shims");
             return;
         }
         for (String opener : OPEN_URL_SHIMS) {
-            writeOpenUrlShim(new File(bin, opener));
+            writeOpenUrlShim(new File(bin, opener), context);
         }
     }
 
@@ -68,7 +72,7 @@ public final class ShellBridgeInstaller {
             return;
         }
         // Always ensure open-url shims exist FIRST, even before prefix is installed
-        installOpenUrlShims(bin);
+        installOpenUrlShims(bin, rm.appContext());
 
         File prefix = EnvInstaller.prefix(rm.appContext());
         File prefixBash = new File(prefix, "bin/bash");
@@ -152,7 +156,13 @@ public final class ShellBridgeInstaller {
      * core stdout bridge) and appends the url to $TMPDIR/agy-open-url for the
      * polling OpenUrlWatcher. Never fails the caller.
      */
-    private static void writeOpenUrlShim(File bridge) {
+    private static void writeOpenUrlShim(File bridge, android.content.Context context) {
+        String pkg = (context != null) ? context.getPackageName() : "com.agy";
+        String cacheDir = (context != null && context.getCacheDir() != null)
+                ? context.getCacheDir().getAbsolutePath() : "";
+        String filesDir = (context != null && context.getFilesDir() != null)
+                ? context.getFilesDir().getAbsolutePath() : "";
+
         StringBuilder sb = new StringBuilder();
         sb.append("#!/system/bin/sh\n");
         sb.append("# AGY URL opener shim (xdg-open / open / sensible-browser).\n");
@@ -162,13 +172,19 @@ public final class ShellBridgeInstaller {
         sb.append("[ -z \"$URL\" ] && URL=\"$2\"\n");
         sb.append("[ -z \"$URL\" ] && exit 0\n");
         sb.append("echo \"AGY_OPEN_URL=$URL\"\n");
-        sb.append("for dir in \"$TMPDIR\" \"$HOME\" \"$HOME/../cache\" /data/user/0/com.agy/cache /data/data/com.agy/cache /data/user/0/com.agy/files /data/data/com.agy/files; do\n");
+        sb.append("if [ -x /system/bin/am ]; then\n");
+        sb.append("  /system/bin/am broadcast -a com.agy.ACTION_OPEN_URL -p ").append(pkg).append(" --es url \"$URL\" >/dev/null 2>&1 || true\n");
+        if (!"com.agy".equals(pkg)) {
+            sb.append("  /system/bin/am broadcast -a com.agy.ACTION_OPEN_URL -p com.agy --es url \"$URL\" >/dev/null 2>&1 || true\n");
+        }
+        sb.append("fi\n");
+        sb.append("for dir in \"").append(cacheDir).append("\" \"").append(filesDir).append("\" \"$TMPDIR\" \"$HOME\" \"$HOME/../cache\" /data/user/0/").append(pkg).append("/cache /data/data/").append(pkg).append("/cache /data/user/0/").append(pkg).append("/files /data/data/").append(pkg).append("/files /data/user/0/com.agy/cache /data/data/com.agy/cache /data/user/0/com.agy/files /data/data/com.agy/files /data/local/tmp; do\n");
         sb.append("  if [ -n \"$dir\" ] && [ -d \"$dir\" ]; then\n");
         sb.append("    printf '%s\\n' \"$URL\" >> \"$dir/agy-open-url\" 2>/dev/null || true\n");
         sb.append("    chmod 666 \"$dir/agy-open-url\" 2>/dev/null || true\n");
         sb.append("  fi\n");
         sb.append("done\n");
-        sb.append("for logdir in \"$HOME/logs\" /data/user/0/com.agy/files/logs /data/data/com.agy/files/logs; do\n");
+        sb.append("for logdir in \"$HOME/logs\" \"").append(filesDir).append("/logs\" /data/user/0/").append(pkg).append("/files/logs /data/data/").append(pkg).append("/files/logs /data/user/0/com.agy/files/logs /data/data/com.agy/files/logs; do\n");
         sb.append("  if [ -d \"$logdir\" ]; then\n");
         sb.append("    printf '[agy-shim] opening URL: %s\\n' \"$URL\" >> \"$logdir/core.log\" 2>/dev/null || true\n");
         sb.append("  fi\n");
@@ -213,8 +229,10 @@ public final class ShellBridgeInstaller {
             return;
         }
         bridge.setReadable(true, false);
-        if (!bridge.setExecutable(true, false)) {
-            Log.w(TAG, "cannot setExecutable on bridge: " + bridge);
+        bridge.setExecutable(true, false);
+        try {
+            android.system.Os.chmod(bridge.getAbsolutePath(), 0755);
+        } catch (Throwable ignored) {
         }
     }
 }

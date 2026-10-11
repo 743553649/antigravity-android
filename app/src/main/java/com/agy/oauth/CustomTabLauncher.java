@@ -101,7 +101,13 @@ public final class CustomTabLauncher {
     }
 
     private boolean doOpen(Context context, Uri uri) {
-        // 1. Try known browsers with direct launch (Chrome first, etc.)
+        // 1. Try system default browser FIRST (implicit Intent, no package lock).
+        // This respects the user's preferred browser (Chrome, Mi Browser, Yandex, etc.)
+        // and avoids MIUI / OEM explicit-package background launch restrictions.
+        if (openDefault(context, uri)) {
+            return true;
+        }
+        // 2. Fallback: try known browsers with direct launch (Chrome, Mi Browser, etc.)
         for (String pkg : CHROME_PACKAGES) {
             if (!PackageInspector.isPackageInstalled(context.getPackageManager(), pkg)) {
                 continue;
@@ -110,11 +116,7 @@ public final class CustomTabLauncher {
                 return true;
             }
         }
-        // 2. Try system default browser (handles user preferred browser)
-        if (openDefault(context, uri)) {
-            return true;
-        }
-        // 3. Try custom tab bind fallback
+        // 3. Fallback: try custom tab bind
         for (String pkg : CHROME_PACKAGES) {
             if (!PackageInspector.isPackageInstalled(context.getPackageManager(), pkg)) {
                 continue;
@@ -123,7 +125,7 @@ public final class CustomTabLauncher {
                 return true;
             }
         }
-        // 4. Fallback to chooser
+        // 4. Final fallback: system chooser
         return openChooser(context, uri);
     }
 

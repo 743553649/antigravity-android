@@ -62,7 +62,7 @@ public final class CoreInstaller {
         OnboardingSeeder.seed(ctx, rm.getAppDataDir(), rm.getProjectsDir());
         // Always ensure open-url shims (xdg-open, open, sensible-browser) are installed
         // in runtime/bin regardless of whether the bionic prefix is extracted.
-        ShellBridgeInstaller.installOpenUrlShims(rm.getBinDir());
+        ShellBridgeInstaller.installOpenUrlShims(rm.getBinDir(), ctx);
         // If the env prefix survived a previous launch, its bridges are cheap to
         // (re)write now. A fresh env install rewrites them when it finishes.
         if (EnvInstaller.isInstalled(ctx)) {
