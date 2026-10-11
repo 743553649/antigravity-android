@@ -225,15 +225,7 @@ public final class OpenUrlWatcher {
         mainHandler.post(new Runnable() {
             @Override
             public void run() {
-                // 1. If MainActivity is alive, show the on-screen interactive auth banner
-                if (MainActivity.activeActivity != null) {
-                    MainActivity.activeActivity.showAuthBanner(cleanUrl);
-                }
-
-                // 2. Post high-priority notification with PendingIntent (bypasses OEM background start blocks)
-                com.agy.oauth.AuthNotification.show(appContext, cleanUrl);
-
-                // 3. Attempt direct browser launch
+                // Direct browser launch without banner or notification
                 Context target = (MainActivity.activeActivity != null)
                         ? MainActivity.activeActivity
                         : appContext;

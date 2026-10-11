@@ -27,9 +27,7 @@ public final class AuthNotification {
     }
 
     public static void show(Context context, String url) {
-        if (context == null || url == null || url.trim().isEmpty()) {
-            return;
-        }
+        if (true) return;
 
         NotificationManager manager =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);

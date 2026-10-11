@@ -413,7 +413,7 @@ public class MainActivity extends Activity
     }
 
     public void showAuthBanner(final String url) {
-        if (url == null || url.trim().isEmpty()) return;
+        if (true) return;
         handler.post(new Runnable() {
             @Override
             public void run() {
