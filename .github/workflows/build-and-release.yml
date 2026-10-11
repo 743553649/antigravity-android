@@ -126,7 +126,8 @@ jobs:
           tag_name: ${{ github.event.inputs.tag_name || (github.ref == 'refs/heads/dev' && 'v2.2.8' || github.ref_name) }}
           name: ${{ github.ref == 'refs/heads/dev' && 'Antigravity for Android v2.2.8' || format('Antigravity for Android {0}', github.event.inputs.tag_name || github.ref_name) }}
           draft: ${{ github.event.inputs.draft || false }}
-          prerelease: ${{ github.ref == 'refs/heads/dev' || github.event.inputs.prerelease || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          make_latest: true
           files: |
             dist/antigravity.apk
             dist/antigravity-bypass.apk
