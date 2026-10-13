@@ -62,6 +62,8 @@ public final class EnvInstaller {
         // a missing/renamed bootstrap asset cannot block boot on an installed env.
         if (isInstalled(ctx)) {
             Log.i(TAG, "env already installed at " + prefix);
+            OverlayCopier.overlay(assets, EnvPaths.ASSET_OVERLAY, prefix);
+            FileModeUtil.recursiveSetExec(new File(prefix, "bin"));
             BusInstaller.install(assets, prefix);
             return false;
         }
