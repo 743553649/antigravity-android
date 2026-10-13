@@ -15,7 +15,7 @@
 
   <p>
     <code>Android 7.0+</code> &nbsp;&bull;&nbsp;
-    <code>ARM64 v8.1-A+</code> &nbsp;&bull;&nbsp;
+    <code>ARM64 v8.0-A+</code> &nbsp;&bull;&nbsp;
     <code>Shizuku Ready</code> &nbsp;&bull;&nbsp;
     <code>Native Bionic</code> &nbsp;&bull;&nbsp;
     <code>Consistent Keystore</code> &nbsp;&bull;&nbsp;
@@ -43,7 +43,7 @@
 Unlike terminal-based chat wrappers or virtualized environments (PRoot, QEMU, chroot), Antigravity executes **natively inside Android userspace (Bionic)** within the application process. Powered by Gemini models, the agent autonomously inspects codebases, edits project trees, executes build tools, and validates results directly on the physical mobile hardware.
 
 > [!NOTE]
-> **Bare-Metal Execution Without Emulation:** Processes run directly on the host CPU via a hybrid Bionic/Glibc loader without virtualization penalties, taking full advantage of UFS storage throughput and ARMv8.1-A+ Large System Extension (LSE) atomics.
+> **Bare-Metal Execution with Transparent Compatibility:** Processes run directly on the host CPU via a hybrid Bionic/Glibc loader without virtualization penalties, taking full advantage of UFS storage throughput and ARMv8.1-A+ Large System Extension (LSE) atomics (with transparent userspace emulation for ARMv8.0-A CPUs via `liblse_compat.so`).
 
 ---
 
@@ -198,7 +198,7 @@ Real-world test: the agent authored a custom Python I/O benchmark and executed m
   <tbody>
     <tr>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>CPU Architecture</b></td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>ARMv8.1-A+</b> (Cortex-A55, A75, Kryo 300+)</td>
+      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>ARMv8.0-A+</b> (Cortex-A53, A55, Kryo, Snapdragon 685+)</td>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>ARMv8.2-A / ARMv9</b> (Snapdragon 8 Gen 1+, Dimensity, Tensor)</td>
     </tr>
     <tr>

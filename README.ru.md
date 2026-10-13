@@ -15,7 +15,7 @@
 
   <p>
     <code>Android 7.0+</code> &nbsp;&bull;&nbsp;
-    <code>ARM64 v8.1-A+</code> &nbsp;&bull;&nbsp;
+    <code>ARM64 v8.0-A+</code> &nbsp;&bull;&nbsp;
     <code>Shizuku Ready</code> &nbsp;&bull;&nbsp;
     <code>Native Bionic</code> &nbsp;&bull;&nbsp;
     <code>Consistent Keystore</code> &nbsp;&bull;&nbsp;
@@ -43,7 +43,7 @@
 В отличие от терминальных чат-клиентов или виртуализованных окружений (PRoot, QEMU, chroot), Antigravity исполняется **нативно в пространстве пользователя Android (Bionic userspace)** в рамках процесса приложения. Агент на базе моделей Gemini самостоятельно исследует кодовую базу, редактирует файлы проекта, запускает системные компиляторы и валидирует результаты непосредственно на целевом мобильном оборудовании.
 
 > [!NOTE]
-> **Прямое исполнение без виртуализации:** Процессы запускаются нативно через гибридный Bionic/Glibc загрузчик без накладных расходов эмуляции, используя аппаратную скорость хранилища UFS и инструкции Large System Extensions (LSE) архитектуры ARMv8.1-A+.
+> **Прямое исполнение с прозрачной совместимостью:** Процессы запускаются нативно через гибридный Bionic/Glibc загрузчик без накладных расходов виртуализации, используя аппаратную скорость хранилища UFS и инструкции Large System Extensions (LSE) архитектуры ARMv8.1-A+ (с прозрачной пользовательской эмуляцией атомики и SIMD для процессоров ARMv8.0-A через `liblse_compat.so`).
 
 ---
 
@@ -198,7 +198,7 @@
   <tbody>
     <tr>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>Архитектура процессора</b></td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>ARMv8.1-A+</b> (Cortex-A55, A75, Kryo 300+)</td>
+      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>ARMv8.0-A+</b> (Cortex-A53, A55, Kryo, Snapdragon 685+)</td>
       <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>ARMv8.2-A / ARMv9</b> (Snapdragon 8 Gen 1+, Dimensity, Tensor)</td>
     </tr>
     <tr>
