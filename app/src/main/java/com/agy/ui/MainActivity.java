@@ -20,6 +20,9 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.agy.bridge.AndroidBridge;
 import com.agy.core.CoreRuntimeState;
 import com.agy.core.CoreServiceLauncher;
@@ -327,19 +330,50 @@ public class MainActivity extends Activity
         }
         this.filePathCallback = callback;
 
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("*/*");
+        Intent chooserIntent = null;
 
-        if (fileChooserParams != null
-                && fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
-            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        // 1. Try standard intent built by Chromium WebChromeClient
+        if (fileChooserParams != null) {
+            try {
+                Intent defaultIntent = fileChooserParams.createIntent();
+                if (defaultIntent != null) {
+                    chooserIntent = Intent.createChooser(defaultIntent, "Select Media / Files");
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "fileChooserParams.createIntent failed: " + t.getMessage());
+            }
+        }
+
+        // 2. Fallback to universal ACTION_GET_CONTENT chooser (supports Gallery, Photos, Files)
+        if (chooserIntent == null) {
+            Intent contentIntent = new Intent(Intent.ACTION_GET_CONTENT);
+            contentIntent.addCategory(Intent.CATEGORY_OPENABLE);
+            contentIntent.setType("*/*");
+            if (fileChooserParams != null) {
+                String[] acceptTypes = fileChooserParams.getAcceptTypes();
+                if (acceptTypes != null && acceptTypes.length > 0) {
+                    List<String> validMimes = new ArrayList<>();
+                    for (String type : acceptTypes) {
+                        if (type != null && type.contains("/")) {
+                            validMimes.add(type.trim());
+                        }
+                    }
+                    if (!validMimes.isEmpty()) {
+                        contentIntent.putExtra(Intent.EXTRA_MIME_TYPES, validMimes.toArray(new String[0]));
+                    }
+                }
+                if (fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+                    contentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                }
+            }
+            chooserIntent = Intent.createChooser(contentIntent, "Select Media / Files");
         }
 
         try {
-            startActivityForResult(intent, REQUEST_FILE_CHOOSER);
+            startActivityForResult(chooserIntent, REQUEST_FILE_CHOOSER);
             return true;
-        } catch (ActivityNotFoundException e) {
+        } catch (Throwable e) {
+            Log.w(TAG, "Chooser failed, fallback to plain GET_CONTENT: " + e.getMessage());
             try {
                 Intent fallback = new Intent(Intent.ACTION_GET_CONTENT);
                 fallback.addCategory(Intent.CATEGORY_OPENABLE);
@@ -348,9 +382,9 @@ public class MainActivity extends Activity
                         && fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
                     fallback.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                 }
-                startActivityForResult(Intent.createChooser(fallback, "Select File"), REQUEST_FILE_CHOOSER);
+                startActivityForResult(fallback, REQUEST_FILE_CHOOSER);
                 return true;
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
                 Log.e(TAG, "Cannot launch file chooser: " + ex.getMessage());
                 if (filePathCallback != null) {
                     filePathCallback.onReceiveValue(null);
@@ -367,7 +401,12 @@ public class MainActivity extends Activity
         if (requestCode == REQUEST_FILE_CHOOSER) {
             if (filePathCallback != null) {
                 Uri[] results = null;
-                if (resultCode == RESULT_OK && data != null) {
+                try {
+                    results = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
+                } catch (Throwable t) {
+                    Log.w(TAG, "parseResult error: " + t.getMessage());
+                }
+                if (results == null && resultCode == RESULT_OK && data != null) {
                     ClipData clipData = data.getClipData();
                     if (clipData != null && clipData.getItemCount() > 0) {
                         results = new Uri[clipData.getItemCount()];
@@ -378,6 +417,18 @@ public class MainActivity extends Activity
                         results = new Uri[]{data.getData()};
                     } else if (data.getDataString() != null) {
                         results = new Uri[]{Uri.parse(data.getDataString())};
+                    }
+                }
+                if (results != null) {
+                    for (Uri uri : results) {
+                        if (uri != null) {
+                            try {
+                                grantUriPermission(getPackageName(), uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } catch (Throwable ignored) {}
+                            try {
+                                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            } catch (Throwable ignored) {}
+                        }
                     }
                 }
                 filePathCallback.onReceiveValue(results);
