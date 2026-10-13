@@ -6,7 +6,6 @@ Zero emojis. Minimal memory footprint (<10MB). Runs smoothly with screen off und
 Triggers supported:
   --delay <duration>        Run task after delay (e.g. 4h, 30m, 10s)
   --interval <duration>     Run task periodically (e.g. 15m, 1h)
-  --cron "<5-field cron>"   Standard cron schedule (e.g. "0 3 * * *")
   --github-pr <owner/repo>  Watch GitHub repository for new pull requests
   --github-issue <owner/repo> Watch GitHub repository for new issues
   --watch-file <path>       Trigger task whenever file or directory changes
@@ -21,16 +20,33 @@ import time
 import json
 import signal
 import argparse
+import shlex
+import hmac
+import secrets
 import subprocess
 import urllib.request
 import urllib.error
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
 
-CONFIG_DIR = os.path.expanduser("~/.gemini/antigravity-app/daemon")
+PREFIX = os.environ.get("PREFIX") or os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+HOME = os.environ.get("HOME") or os.path.dirname(PREFIX)
+def application_id_from_prefix():
+    files_dir = os.path.dirname(os.path.normpath(PREFIX))
+    if os.path.basename(files_dir) != "files":
+        return ""
+    return os.path.basename(os.path.dirname(files_dir))
+
+AGY_APPLICATION_ID = (os.environ.get("AGY_APPLICATION_ID")
+                      or os.environ.get("RISH_APPLICATION_ID")
+                      or application_id_from_prefix())
+RISH_BIN = os.path.join(PREFIX, "bin", "rish")
+BASH_BIN = os.path.join(PREFIX, "bin", "bash")
+CONFIG_DIR = os.path.join(HOME, ".gemini", "antigravity-app", "daemon")
 TASKS_FILE = os.path.join(CONFIG_DIR, "tasks.json")
 LOG_FILE = os.path.join(CONFIG_DIR, "daemon.log")
 PID_FILE = os.path.join(CONFIG_DIR, "daemon.pid")
+STOP_EVENT = threading.Event()
 
 def log(msg):
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -70,14 +86,49 @@ def save_tasks(tasks):
         json.dump(tasks, f, indent=2, ensure_ascii=False)
     os.replace(tmp_path, TASKS_FILE)
 
-def wake_antigravity_app():
-    log("Waking Antigravity activity to foreground...")
+def read_daemon_pid():
     try:
-        rish = "/data/user/0/com.agy/files/usr/bin/rish"
-        if os.path.isfile(rish):
-            subprocess.run([rish, "-c", "am start -n com.agy/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with open(PID_FILE, "r", encoding="utf-8") as f:
+            raw = f.read().strip()
+        try:
+            value = json.loads(raw)
+            return int(value.get("pid", 0)) if isinstance(value, dict) else int(value)
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return 0
+    except (OSError, ValueError):
+        return 0
+
+def is_our_daemon(pid):
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            command_line = f.read().replace(b"\0", b" ").decode("utf-8", errors="replace")
+        return os.path.realpath(__file__) in command_line or os.path.basename(__file__) in command_line
+    except (OSError, PermissionError):
+        return False
+
+def request_stop(_signum=None, _frame=None):
+    STOP_EVENT.set()
+
+def wake_antigravity_app():
+    if not AGY_APPLICATION_ID:
+        log("Cannot wake app: application id was not supplied or derived from PREFIX")
+        return
+    log("Waking Antigravity activity to foreground...")
+    command = [
+        "am", "start", "-a", "android.intent.action.MAIN",
+        "-c", "android.intent.category.LAUNCHER", "-p", AGY_APPLICATION_ID
+    ]
+    try:
+        if os.path.isfile(RISH_BIN):
+            subprocess.run(
+                [RISH_BIN, "-c", " ".join(shlex.quote(part) for part in command)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15
+            )
         else:
-            subprocess.run(["am", "start", "-n", "com.agy/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
     except Exception as e:
         log(f"Cannot wake app: {e}")
 
@@ -100,7 +151,8 @@ def execute_action(task):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            timeout=task.get("timeout_sec", 600)
+            timeout=task.get("timeout_sec", 600),
+            executable=BASH_BIN if os.path.isfile(BASH_BIN) else "/system/bin/sh"
         )
         success = (res.returncode == 0)
         output = res.stdout.strip()
@@ -176,8 +228,7 @@ def check_battery_condition(trigger_info):
     if target_level is None:
         return False
     try:
-        rish = "/data/user/0/com.agy/files/usr/bin/rish"
-        p = subprocess.run([rish, "-c", "dumpsys battery"], stdout=subprocess.PIPE, text=True, timeout=5)
+        p = subprocess.run([RISH_BIN, "-c", "dumpsys battery"], stdout=subprocess.PIPE, text=True, timeout=5)
         for line in p.stdout.splitlines():
             if "level:" in line:
                 val = int(line.split(":", 1)[1].strip())
@@ -188,36 +239,72 @@ def check_battery_condition(trigger_info):
 
 def start_webhook_listener(port):
     class WebhookHandler(BaseHTTPRequestHandler):
-        def do_POST(self):
-            content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length).decode("utf-8")
-            log(f"Incoming webhook on port {port}: {body[:200]}")
-            
-            # Check for triggered tasks
-            tasks = load_tasks()
-            fired = False
-            for t in tasks:
-                if t.get("enabled", True) and t.get("trigger", {}).get("type") == "webhook":
-                    execute_action(t)
-                    fired = True
+        MAX_BODY_BYTES = 64 * 1024
 
-            self.send_response(200)
+        def _reply(self, status, body):
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "close")
             self.end_headers()
-            self.wfile.write(json.dumps({"status": "ok", "fired": fired}).encode("utf-8"))
+            self.wfile.write(json.dumps(body).encode("utf-8"))
+            self.close_connection = True
+
+        def do_POST(self):
+            if self.path != "/":
+                self._reply(404, {"status": "not_found"})
+                return
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self._reply(400, {"status": "invalid_content_length"})
+                return
+            if content_length < 0 or content_length > self.MAX_BODY_BYTES:
+                self._reply(413, {"status": "body_too_large"})
+                return
+
+            provided = self.headers.get("X-AGY-Token", "")
+            tasks = load_tasks()
+            authorized = []
+            for task in tasks:
+                trigger = task.get("trigger", {})
+                expected = trigger.get("token", "")
+                if (task.get("enabled", True)
+                        and trigger.get("type") == "webhook"
+                        and int(trigger.get("port", 45199)) == port
+                        and expected
+                        and hmac.compare_digest(str(provided), str(expected))):
+                    authorized.append(task)
+            if not authorized:
+                self._reply(401, {"status": "unauthorized"})
+                return
+
+            try:
+                body = self.rfile.read(content_length).decode("utf-8", errors="replace")
+            except Exception:
+                self._reply(400, {"status": "invalid_body"})
+                return
+            log(f"Authenticated webhook on port {port}: {body[:200]}")
+            for task in authorized:
+                execute_action(task)
+            self._reply(200, {"status": "ok", "fired": len(authorized)})
 
         def log_message(self, format, *args):
             pass
 
-    server = HTTPServer(("127.0.0.1", port), WebhookHandler)
-    log(f"Local webhook receiver listening on http://127.0.0.1:{port}")
+    class LocalWebhookServer(ThreadingHTTPServer):
+        daemon_threads = True
+        allow_reuse_address = True
+
+    server = LocalWebhookServer(("127.0.0.1", port), WebhookHandler)
+    log(f"Authenticated local webhook receiver listening on 127.0.0.1:{port}")
     server.serve_forever()
 
 def daemon_loop():
     log("Antigravity background micro-daemon running.")
     webhook_threads = {}
 
-    while True:
+    while not STOP_EVENT.is_set():
         try:
             tasks = load_tasks()
             now = time.time()
@@ -299,7 +386,13 @@ def daemon_loop():
         except Exception as e:
             log(f"Loop error: {e}")
 
-        time.sleep(10)
+        STOP_EVENT.wait(10)
+    try:
+        if read_daemon_pid() == os.getpid():
+            os.unlink(PID_FILE)
+    except OSError:
+        pass
+    log("Antigravity background micro-daemon stopped.")
 
 def parse_duration(s):
     s = str(s).strip()
@@ -357,7 +450,8 @@ def cmd_add(args):
     elif args.webhook_port:
         trigger = {
             "type": "webhook",
-            "port": int(args.webhook_port)
+            "port": int(args.webhook_port),
+            "token": args.webhook_token or secrets.token_urlsafe(32)
         }
     else:
         print("[agy-daemon] error: specify trigger (--delay, --interval, --github-pr, --github-issue, --watch-file, --battery-below, or --webhook-port)")
@@ -375,6 +469,9 @@ def cmd_add(args):
     tasks.append(new_task)
     save_tasks(tasks)
     print(f"[agy-daemon] Task added: {new_task['name']} (ID: {task_id})")
+    if trigger.get("type") == "webhook":
+        print(f"[agy-daemon] POST http://127.0.0.1:{trigger['port']}/")
+        print(f"[agy-daemon] Include header X-AGY-Token: {trigger['token']}")
 
 def cmd_remove(args):
     tasks = load_tasks()
@@ -400,6 +497,37 @@ def cmd_list(args):
         if t.get("wake_app"):
             print("  Wake UI: Enabled")
 
+def cmd_status(args=None):
+    pid = read_daemon_pid()
+    if pid and is_our_daemon(pid):
+        print(f"Daemon running (pid {pid}).")
+        return
+    try:
+        os.unlink(PID_FILE)
+    except OSError:
+        pass
+    print("Daemon not currently running.")
+
+def cmd_stop(args=None):
+    pid = read_daemon_pid()
+    if not pid or not is_our_daemon(pid):
+        cmd_status()
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError as e:
+        log(f"Cannot stop daemon pid {pid}: {e}")
+        return
+    deadline = time.time() + 15
+    while time.time() < deadline and is_our_daemon(pid):
+        time.sleep(0.25)
+    if is_our_daemon(pid):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    print(f"Daemon stopped (pid {pid}).")
+
 def main():
     parser = argparse.ArgumentParser(description="Antigravity Micro-Daemon")
     subparsers = parser.add_subparsers(dest="subcommand")
@@ -422,16 +550,35 @@ def main():
     p_add.add_argument("--github-issue", help="Watch GitHub repo for new issues, e.g. user/repo")
     p_add.add_argument("--watch-file", help="Watch file or directory path for changes")
     p_add.add_argument("--battery-below", help="Trigger when battery percentage falls below value")
-    p_add.add_argument("--webhook-port", help="Start HTTP webhook receiver on port")
-    p_add.add_argument("--wake-app", action="store_true", help="Bring Antigravity UI to front when task finishes")
+    p_add.add_argument("--webhook-port", help="Start authenticated local webhook receiver on port")
+    p_add.add_argument("--webhook-token", help="Optional webhook token (generated when omitted)")
+    p_add.add_argument("--wake-app", action="store_true", help="Bring Antigravity workspace to foreground when the task finishes")
 
     args = parser.parse_args()
 
     if args.subcommand == "start":
         os.makedirs(CONFIG_DIR, exist_ok=True)
-        with open(PID_FILE, "w") as f:
-            f.write(str(os.getpid()))
-        daemon_loop()
+        existing = read_daemon_pid()
+        if existing and is_our_daemon(existing):
+            print(f"Daemon already running (pid {existing}).")
+            return
+        tmp_pid = PID_FILE + ".tmp"
+        with open(tmp_pid, "w", encoding="utf-8") as f:
+            json.dump({"pid": os.getpid(), "script": os.path.realpath(__file__)}, f)
+        os.replace(tmp_pid, PID_FILE)
+        STOP_EVENT.clear()
+        signal.signal(signal.SIGTERM, request_stop)
+        signal.signal(signal.SIGINT, request_stop)
+        try:
+            daemon_loop()
+        finally:
+            try:
+                if read_daemon_pid() == os.getpid():
+                    os.unlink(PID_FILE)
+            except OSError:
+                pass
+    elif args.subcommand == "stop":
+        cmd_stop(args)
     elif args.subcommand == "add":
         cmd_add(args)
     elif args.subcommand == "remove":
@@ -441,10 +588,7 @@ def main():
     elif args.subcommand == "list":
         cmd_list(args)
     elif args.subcommand == "status":
-        if os.path.isfile(PID_FILE):
-            print(f"Daemon PID file exists: {PID_FILE}")
-        else:
-            print("Daemon not currently running.")
+        cmd_status(args)
     else:
         parser.print_help()
 

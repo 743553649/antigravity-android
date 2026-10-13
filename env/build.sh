@@ -24,6 +24,8 @@ pack_assets() {
     cp -a "$ENV_DIR/pkg"     "$ASSETS/env/pkg"
     cp -a "$ENV_DIR/overlay" "$ASSETS/env/overlay"
     cp -f "$ENV_DIR/bootstrap/bootstrap.tar.gz" "$ASSETS/env/bootstrap/"
+    cp -f "$ENV_DIR/seed-packages.txt" "$ASSETS/env/seed-packages.txt"
+    python3 "$ENV_DIR/scripts/make_manifest.py" "$ASSETS/env"
     log "assets -> $ASSETS"
     find "$ASSETS" -maxdepth 3 | sed 's/^/  /' >&2
 }
@@ -31,6 +33,6 @@ pack_assets() {
 case "${1:-all}" in
     bootstrap) build_bootstrap_tar ;;
     assets)    pack_assets ;;
-    all)       build_bootstrap_tar; pack_assets ;;
+    all)       pack_assets ;;
     *) printf 'usage: build.sh [bootstrap|assets|all]\n' >&2; exit 1 ;;
 esac
