@@ -1,5 +1,7 @@
 package com.agy.install;
 
+import android.text.TextUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,12 +12,15 @@ public final class TarPath {
     }
 
     public static String normalize(String rawName) {
+        if (rawName == null) {
+            return null;
+        }
         String name = rawName.replace('\\', '/');
+        if (name.startsWith("/")) {
+            return null;
+        }
         while (name.startsWith("./")) {
             name = name.substring(2);
-        }
-        while (name.startsWith("/")) {
-            name = name.substring(1);
         }
         if (name.isEmpty() || ".".equals(name)) {
             return "";
@@ -30,6 +35,6 @@ public final class TarPath {
             }
             parts.add(part);
         }
-        return String.join("/", parts);
+        return TextUtils.join("/", parts);
     }
 }

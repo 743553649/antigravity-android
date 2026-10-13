@@ -9,15 +9,15 @@
 ## 1. Platform & Environment Identity
 
 - **Platform:** Native Android (Linux kernel 6.1+, ARM64 / `aarch64` architecture, ARMv8.1-A+ with LSE).
-- **Application Context:** Runs directly inside the `com.agy` package sandbox.
+- **Application Context:** Runs under the installed AGY application id (`$AGY_APPLICATION_ID`) and the current Android user/profile.
 - **Key Filesystem Paths:**
-  - Application Root (`$HOME`): `/data/user/0/com.agy/files`
-  - Linux Userspace Prefix (`$PREFIX`): `/data/user/0/com.agy/files/usr`
-  - User Binary Path: `/data/user/0/com.agy/files/usr/bin` (always ensure this is in `$PATH`)
-  - Runtime Internals: `/data/user/0/com.agy/files/runtime/bin`
-  - External / Shared Storage: `/storage/emulated/0` (Projects typically reside in `/storage/emulated/0/Documents/`)
-  - AI State & Config: `/data/user/0/com.agy/files/.gemini/config/`
-  - Conversation Brain & Artifacts: `/data/user/0/com.agy/files/.gemini/antigravity-app/brain/<conversation-id>/`
+  - Application Root (`$HOME`): the app-private `files/` directory.
+  - Linux Userspace Prefix (`$PREFIX`): `$HOME/usr`.
+  - User Binary Path: `$PREFIX/bin` (prefer the existing `$PATH`; do not hard-code `/data/user/0` or an application id).
+  - Runtime Internals: `$HOME/runtime/bin`.
+  - External / Shared Storage: `/storage/emulated/0` (Projects typically reside in `/storage/emulated/0/Documents/`).
+  - AI State & Config: `$HOME/.gemini/config/`.
+  - Conversation Brain & Artifacts: `$HOME/.gemini/antigravity-app/brain/<conversation-id>/`.
 
 ---
 
@@ -30,8 +30,11 @@
 - **Environment Variables for Shell Commands:**
   When executing commands, ensure the environment is configured:
   ```bash
-  export PATH="/data/user/0/com.agy/files/usr/bin:$PATH"
-  export HOME="/data/user/0/com.agy/files"
+  # HOME is resolved by the AGY profile; derive PREFIX without a fixed app id.
+  : "${HOME:?open an AGY shell with the env profile loaded}"
+  export PREFIX="${PREFIX:-$HOME/usr}"
+  export HOME PREFIX
+  export PATH="$PREFIX/bin:$PATH"
   ```
 - **Git on Android Storage:**
   Git installed via Termux repos may check `/data/data/com.termux/files/usr/etc/` which doesn't exist. Always use:
@@ -44,7 +47,7 @@
 
 ## 3. Package Management (`pkg` / `tlx`)
 
-AGY v2 includes an ultra-fast, native package manager (`pkg`) written in Bash & AWK:
+AGY includes a small Termux-repository package client (`pkg`) written in Bash & AWK. Python is part of the default seed package set and is installed on first networked startup; first launch can remain offline, in which case Python stays pending until a later retry.
 
 - **Correct Syntax:**
   ```bash
@@ -77,7 +80,7 @@ AGY v2 includes an ultra-fast, native package manager (`pkg`) written in Bash & 
 ## 4. Elevated Operations via Shizuku (`rish`)
 
 The agent has native access to Shizuku's elevated ADB shell (`uid=2000(shell)`):
-- **Executable Location:** `$PREFIX/bin/rish` or `/data/user/0/com.agy/files/runtime/bin/rish` (configured with package `com.agy`).
+- **Executable Location:** `$PREFIX/bin/rish`. It discovers the Shizuku dex under `$PREFIX/../runtime/bin` and receives the current package id from the app bridge.
 - **How to Execute:**
   ```bash
   rish -c "<command>"

@@ -3,8 +3,11 @@ build/*
 !build/lib/
 !build/phases/
 !build/tools/
+!build/tests/
+!build/tests/**
 dist/*
 !dist/.gitkeep
+env/dist/
 app/gen/
 web/generated/
 core/language_server
@@ -30,7 +33,6 @@ Thumbs.db
 
 # Sensitive credentials & keystores
 *.keystore
-!tools/debug.keystore
 *.jks
 *.key
 *-token

@@ -1,0 +1,3 @@
+# Termux repository packages installed automatically after the bundled prefix is ready.
+# These are best-effort and may be deferred until a network connection is available.
+python
