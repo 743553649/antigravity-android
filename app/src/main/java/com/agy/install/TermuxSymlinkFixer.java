@@ -64,7 +64,7 @@ public final class TermuxSymlinkFixer {
                     fixed++;
                 } catch (Exception e) {
                     try {
-                        Os.unlink(temporary.getAbsolutePath());
+                        Os.remove(temporary.getAbsolutePath());
                     } catch (ErrnoException ignored) {
                     }
                     Log.w(TAG, "cannot repoint symlink " + child + ": " + e);

@@ -134,7 +134,7 @@ public final class TarExtractor {
     private static void removeConflictingLeaf(File out, boolean allowDirectory) throws IOException {
         if (TextFileDetector.isSymlink(out)) {
             try {
-                Os.unlink(out.getAbsolutePath());
+                Os.remove(out.getAbsolutePath());
             } catch (ErrnoException e) {
                 throw new IOException("cannot replace tar symlink " + out, e);
             }

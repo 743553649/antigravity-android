@@ -46,9 +46,13 @@ def main(argv):
     port = env.get("PORT", "0")
     port_dev = env.get("PORT_DEV", "0")
     core_version = env.get("CORE_VERSION", "")
+    app_version_name = env.get("APP_VERSION_NAME", "2.3.0")
+    app_version_code = env.get("APP_VERSION_CODE", "15")
     oauth_scheme = env.get("OAUTH_SCHEME", "")
     app_name = env.get("APP_NAME", "")
     min_api = env.get("MIN_API", "24")
+    target_sdk = env.get("TARGET_SDK", "28")
+    is_debug = "true" if os.environ.get("DEV_MODE") == "1" else "false"
 
     pkg_dir = os.path.join(outdir, *pkg.split("."))
     res_values_dir = os.path.join(outdir, "res", "values")
@@ -63,9 +67,13 @@ def main(argv):
         f.write("    public static final int PORT=%s;\n" % port)
         f.write("    public static final int PORT_DEV=%s;\n" % port_dev)
         f.write("    public static final String CORE_VERSION=%s;\n" % java_string(core_version))
+        f.write("    public static final String APP_VERSION_NAME=%s;\n" % java_string(app_version_name))
+        f.write("    public static final int APP_VERSION_CODE=%s;\n" % app_version_code)
         f.write("    public static final String OAUTH_SCHEME=%s;\n" % java_string(oauth_scheme))
         f.write("    public static final String APP_NAME=%s;\n" % java_string(app_name))
         f.write("    public static final int MIN_API=%s;\n" % min_api)
+        f.write("    public static final int TARGET_SDK=%s;\n" % target_sdk)
+        f.write("    public static final boolean DEBUG=%s;\n" % is_debug)
         f.write("}\n")
 
     gen_xml_path = os.path.join(res_values_dir, "gen.xml")
