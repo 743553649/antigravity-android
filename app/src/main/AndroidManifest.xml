@@ -34,9 +34,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- dev build: android:debuggable="true" enables `run-as com.agy`; revert for release -->
     <application
-        android:debuggable="true"
         android:allowBackup="false"
         android:hardwareAccelerated="true"
         android:largeHeap="true"

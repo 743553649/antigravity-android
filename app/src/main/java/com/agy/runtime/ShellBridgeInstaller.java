@@ -197,17 +197,12 @@ public final class ShellBridgeInstaller {
     }
 
     /**
-     * Writes the AGY URL opener shim. It is run by Android's /system/bin/sh,
-     * prints the machine-readable "AGY_OPEN_URL=<url>" line (captured by the
-     * core stdout bridge) and appends the url to $TMPDIR/agy-open-url for the
-     * polling OpenUrlWatcher. Never fails the caller.
+     * Writes the AGY URL opener shim. It prints "AGY_OPEN_URL=<url>" and
+     * "ANTIGRAVITY_OPEN_URL: <url>" for the core stdout reader and attempts direct
+     * broadcast/intent dispatch via /system/bin/am when available.
      */
     private static void writeOpenUrlShim(File bridge, android.content.Context context) {
         String pkg = (context != null) ? context.getPackageName() : "com.agy";
-        String cacheDir = (context != null && context.getCacheDir() != null)
-                ? context.getCacheDir().getAbsolutePath() : "";
-        String filesDir = (context != null && context.getFilesDir() != null)
-                ? context.getFilesDir().getAbsolutePath() : "";
 
         StringBuilder sb = new StringBuilder();
         sb.append("#!/system/bin/sh\n");
@@ -224,25 +219,7 @@ public final class ShellBridgeInstaller {
         if (!"com.agy".equals(pkg)) {
             sb.append("  /system/bin/am broadcast -a com.agy.ACTION_OPEN_URL -p com.agy --es url \"$URL\" >/dev/null 2>&1 || true\n");
         }
-        sb.append("fi\n");
-        sb.append("for dir in \"").append(cacheDir).append("\" \"").append(filesDir).append("\" \"$TMPDIR\" \"$HOME\" \"$HOME/../cache\" /data/user/0/").append(pkg).append("/cache /data/data/").append(pkg).append("/cache /data/user/0/").append(pkg).append("/files /data/data/").append(pkg).append("/files /data/user/0/com.agy/cache /data/data/com.agy/cache /data/user/0/com.agy/files /data/data/com.agy/files /data/local/tmp; do\n");
-        sb.append("  if [ -n \"$dir\" ] && [ -d \"$dir\" ]; then\n");
-        sb.append("    printf '%s\\n' \"$URL\" >> \"$dir/agy-open-url\" 2>/dev/null || true\n");
-        sb.append("    chmod 666 \"$dir/agy-open-url\" 2>/dev/null || true\n");
-        sb.append("  fi\n");
-        sb.append("done\n");
-        sb.append("for logdir in \"$HOME/logs\" \"").append(filesDir).append("/logs\" /data/user/0/").append(pkg).append("/files/logs /data/data/").append(pkg).append("/files/logs /data/user/0/com.agy/files/logs /data/data/com.agy/files/logs; do\n");
-        sb.append("  if [ -d \"$logdir\" ]; then\n");
-        sb.append("    printf '[agy-shim] opening URL: %s\\n' \"$URL\" >> \"$logdir/core.log\" 2>/dev/null || true\n");
-        sb.append("  fi\n");
-        sb.append("done\n");
-        sb.append("if command -v termux-open >/dev/null 2>&1; then\n");
-        sb.append("  termux-open \"$URL\" >/dev/null 2>&1 && exit 0\n");
-        sb.append("fi\n");
-        sb.append("if [ -x /system/bin/am ]; then\n");
-        sb.append("  /system/bin/am start -a android.intent.action.VIEW -p com.android.chrome -d \"$URL\" >/dev/null 2>&1 || \\\n");
-        sb.append("  /system/bin/am start -a android.intent.action.VIEW -p com.mi.globalbrowser -d \"$URL\" >/dev/null 2>&1 || \\\n");
-        sb.append("  /system/bin/am start -a android.intent.action.VIEW -d \"$URL\" >/dev/null 2>&1 && exit 0\n");
+        sb.append("  /system/bin/am start -a android.intent.action.VIEW -d \"$URL\" >/dev/null 2>&1 || true\n");
         sb.append("fi\n");
         sb.append("exit 0\n");
         writeScript(bridge, sb.toString());

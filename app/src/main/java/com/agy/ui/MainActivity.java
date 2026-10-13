@@ -14,27 +14,14 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.content.ActivityNotFoundException;
-import android.content.ClipData;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Button;
-import android.widget.Toast;
-import android.content.ClipboardManager;
-import android.content.Context;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.util.TypedValue;
-import android.view.Gravity;
-import android.view.ViewGroup;
 
 import com.agy.bridge.AndroidBridge;
 import com.agy.core.CoreRuntimeState;
 import com.agy.core.CoreServiceLauncher;
-import com.agy.oauth.AuthNotification;
 import com.agy.oauth.OAuthManager;
 import com.agy.oauth.OAuthTokenStore;
 import com.agy.runtime.RuntimeManager;
@@ -75,7 +62,6 @@ public class MainActivity extends Activity
     private WebViewHost webViewHost;
     private SplashController splash;
     private FrameLayout rootLayout;
-    private View authBannerView;
 
     private boolean appLoaded = false;
     private int loadedGeneration = -1;
@@ -237,7 +223,6 @@ public class MainActivity extends Activity
         if (activeActivity == this) {
             activeActivity = null;
         }
-        dismissAuthBanner();
         AppLifecycle.destroy(handler);
         super.onDestroy();
     }
@@ -281,9 +266,6 @@ public class MainActivity extends Activity
     protected void onResume() {
         super.onResume();
         activeActivity = this;
-        if (OAuthTokenStore.hasToken(this)) {
-            dismissAuthBanner();
-        }
         if (webViewHost != null) {
             AppLifecycle.resume(webViewHost.getWebView());
         }
@@ -410,152 +392,5 @@ public class MainActivity extends Activity
             WebView wv = (webViewHost != null) ? webViewHost.getWebView() : null;
             com.agy.ui.download.FileDownloader.onPermissionResult(this, wv, requestCode, grantResults);
         }
-    }
-
-    public void showAuthBanner(final String url) {
-        if (true) return;
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (isFinishing() || isDestroyed()) return;
-                final String targetUrl = url.trim();
-                if (authBannerView != null) {
-                    authBannerView.setTag(targetUrl);
-                    authBannerView.setVisibility(View.VISIBLE);
-                    authBannerView.bringToFront();
-                    return;
-                }
-                if (rootLayout == null) return;
-
-                final LinearLayout banner = new LinearLayout(MainActivity.this);
-                authBannerView = banner;
-                banner.setTag(targetUrl);
-                banner.setOrientation(LinearLayout.VERTICAL);
-
-                float density = getResources().getDisplayMetrics().density;
-                int pad = (int) (16 * density);
-                banner.setPadding(pad, pad, pad, pad);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    banner.setElevation(24f * density);
-                }
-
-                // Background drawable: modern dark rounded card with Google blue accent border
-                GradientDrawable bg = new GradientDrawable();
-                bg.setColor(0xFF1E1F26);
-                bg.setCornerRadius(16f * density);
-                bg.setStroke((int) (1.5f * density), 0xFF4285F4);
-                banner.setBackground(bg);
-
-                // Row with title and close button
-                LinearLayout header = new LinearLayout(MainActivity.this);
-                header.setOrientation(LinearLayout.HORIZONTAL);
-                header.setGravity(Gravity.CENTER_VERTICAL);
-
-                TextView title = new TextView(MainActivity.this);
-                title.setText("Google Sign-In / Вход в Google");
-                title.setTextColor(0xFFFFFFFF);
-                title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-                title.setTypeface(Typeface.DEFAULT_BOLD);
-                LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-                header.addView(title, titleLp);
-
-                TextView closeBtn = new TextView(MainActivity.this);
-                closeBtn.setText("✕");
-                closeBtn.setTextColor(0xFF9E9E9E);
-                closeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-                closeBtn.setPadding(pad / 2, 0, pad / 2, 0);
-                closeBtn.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        dismissAuthBanner();
-                    }
-                });
-                header.addView(closeBtn);
-                banner.addView(header);
-
-                TextView subtitle = new TextView(MainActivity.this);
-                subtitle.setText("Нажмите кнопку ниже для перехода в браузер:");
-                subtitle.setTextColor(0xFFB0B0B0);
-                subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                subtitle.setPadding(0, pad / 3, 0, pad / 2);
-                banner.addView(subtitle);
-
-                // Buttons row
-                LinearLayout btnRow = new LinearLayout(MainActivity.this);
-                btnRow.setOrientation(LinearLayout.HORIZONTAL);
-                btnRow.setGravity(Gravity.CENTER_VERTICAL);
-
-                // Open Browser button (primary blue)
-                Button openBtn = new Button(MainActivity.this);
-                openBtn.setText("Открыть браузер");
-                openBtn.setTextColor(0xFFFFFFFF);
-                openBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                GradientDrawable btnBg = new GradientDrawable();
-                btnBg.setColor(0xFF1A73E8);
-                btnBg.setCornerRadius(8f * density);
-                openBtn.setBackground(btnBg);
-                openBtn.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        String currentUrl = (String) banner.getTag();
-                        if (currentUrl != null && oauthManager != null) {
-                            oauthManager.openInBrowser(MainActivity.this, currentUrl);
-                        }
-                    }
-                });
-                LinearLayout.LayoutParams openLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.3f);
-                openLp.rightMargin = (int) (8 * density);
-                btnRow.addView(openBtn, openLp);
-
-                // Copy Link button (secondary dark gray)
-                Button copyBtn = new Button(MainActivity.this);
-                copyBtn.setText("Копировать");
-                copyBtn.setTextColor(0xFFE0E0E0);
-                copyBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                GradientDrawable copyBg = new GradientDrawable();
-                copyBg.setColor(0xFF2E313D);
-                copyBg.setCornerRadius(8f * density);
-                copyBtn.setBackground(copyBg);
-                copyBtn.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        String currentUrl = (String) banner.getTag();
-                        if (currentUrl != null) {
-                            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                            if (cm != null) {
-                                cm.setPrimaryClip(ClipData.newPlainText("Google Sign-In URL", currentUrl));
-                                Toast.makeText(MainActivity.this, "Ссылка скопирована в буфер", Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                    }
-                });
-                LinearLayout.LayoutParams copyLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-                btnRow.addView(copyBtn, copyLp);
-
-                banner.addView(btnRow);
-
-                FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-                int margin = (int) (16 * density);
-                flp.setMargins(margin, margin + (int) (32 * density), margin, margin);
-                rootLayout.addView(banner, flp);
-                banner.bringToFront();
-            }
-        });
-    }
-
-    public void dismissAuthBanner() {
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (authBannerView != null && rootLayout != null) {
-                    rootLayout.removeView(authBannerView);
-                    authBannerView = null;
-                }
-                AuthNotification.cancel(MainActivity.this);
-            }
-        });
     }
 }
