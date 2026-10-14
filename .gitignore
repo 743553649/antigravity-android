@@ -12,6 +12,7 @@ app/gen/
 web/generated/
 core/language_server
 !core/language_server.tar.gz
+env/bootstrap/*.zip
 
 # Python cache
 __pycache__/

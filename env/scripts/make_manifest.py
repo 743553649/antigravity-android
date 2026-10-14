@@ -38,6 +38,8 @@ def tree_digest(root: Path) -> str:
 
 def read_seed_packages(root: Path) -> list[str]:
     path = root / "seed-packages.txt"
+    if not path.is_file():
+        return []
     packages = []
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.partition("#")[0].strip()
@@ -53,7 +55,7 @@ def make_manifest(root: Path) -> dict:
     bootstrap = root / "bootstrap" / "bootstrap.tar.gz"
     overlay = root / "overlay"
     pkg = root / "pkg"
-    for required in (bootstrap, overlay, pkg, root / "seed-packages.txt"):
+    for required in (bootstrap, overlay, pkg):
         if not required.exists():
             raise FileNotFoundError(f"required env bundle input is missing: {required}")
 

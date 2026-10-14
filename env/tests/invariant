@@ -26,11 +26,15 @@ for src in pkg overlay; do
 done
 
 # 2. seed package policy is staged byte-for-byte and the manifest is current
-if [ -f "$ENV_DIR/seed-packages.txt" ] && [ -f "$DIST/env/seed-packages.txt" ] \
-        && cmp -s "$ENV_DIR/seed-packages.txt" "$DIST/env/seed-packages.txt"; then
-    ok "seed package list staged 1:1"
+if [ -f "$ENV_DIR/seed-packages.txt" ]; then
+    if [ -f "$DIST/env/seed-packages.txt" ] \
+            && cmp -s "$ENV_DIR/seed-packages.txt" "$DIST/env/seed-packages.txt"; then
+        ok "seed package list staged 1:1"
+    else
+        bad "seed package list missing or differs"
+    fi
 else
-    bad "seed package list missing or differs"
+    ok "no seed packages configured (empty seed list)"
 fi
 python3 "$ENV_DIR/scripts/make_manifest.py" --check "$DIST/env" \
     && ok "env manifest matches staged inputs" || bad "env manifest stale/missing"
