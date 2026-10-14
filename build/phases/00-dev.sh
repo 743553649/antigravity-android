@@ -16,7 +16,11 @@
 log "[0/9] configure build edition and generated sources"
 if [ "$DEV_MODE" -eq 1 ]; then
     OUT_APK="$DIST_DIR/antigravity-dev.apk"
-    log "  Configuring DEV edition: package=$PKG_DEV, label='$APP_NAME_DEV', port=$PORT_DEV"
+    if [ "${REGION_BYPASS:-0}" -eq 1 ]; then
+        log "  Configuring DEV edition (with REGION BYPASS): package=$PKG_DEV, label='$APP_NAME_DEV', port=$PORT_DEV"
+    else
+        log "  Configuring DEV edition: package=$PKG_DEV, label='$APP_NAME_DEV', port=$PORT_DEV"
+    fi
 elif [ "${REGION_BYPASS:-0}" -eq 1 ]; then
     OUT_APK="$DIST_DIR/antigravity-bypass.apk"
     log "  Configuring RELEASE edition with REGION BYPASS: $OUT_APK"
