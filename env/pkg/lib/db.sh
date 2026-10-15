@@ -25,11 +25,18 @@ db_put() {
 db_remove() { rm -f "$(db_meta "$1")" "$(db_files "$1")"; }
 
 db_list() {
-    local f base
+    local f base ver line
     for f in "$PKG_DB"/*.meta; do
         [ -e "$f" ] || continue
-        base="$(basename "$f" .meta)"
-        printf '%s %s\n' "$base" "$(db_get "$base" version)"
+        base="${f##*/}"
+        base="${base%.meta}"
+        ver=""
+        while IFS= read -r line || [ -n "$line" ]; do
+            case "$line" in
+                version=*) ver="${line#version=}"; break ;;
+            esac
+        done < "$f"
+        printf '%s %s\n' "$base" "$ver"
     done
 }
 

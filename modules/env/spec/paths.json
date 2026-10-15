@@ -1,0 +1,9 @@
+{
+  "app_root": "/data/user/0/{package_name}/files",
+  "prefix": "/data/user/0/{package_name}/files/usr",
+  "runtime": "/data/user/0/{package_name}/files/runtime",
+  "cache": "/data/user/0/{package_name}/cache",
+  "gemini_home": "/data/user/0/{package_name}/files/.gemini",
+  "shared_storage": "/storage/emulated/0",
+  "default_projects": "/storage/emulated/0/Documents"
+}

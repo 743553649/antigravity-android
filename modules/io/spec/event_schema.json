@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AntigravityEventEnvelope",
+  "type": "object",
+  "required": ["event", "timestamp", "source", "data"],
+  "properties": {
+    "event": {
+      "type": "string",
+      "description": "Dot-separated event name, e.g. core.url.open, agent.task.started"
+    },
+    "timestamp": {
+      "type": "integer",
+      "description": "Epoch timestamp in milliseconds"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source origin of the event, e.g. language_server:stdout, input:socket"
+    },
+    "data": {
+      "type": "object",
+      "description": "Arbitrary event payload"
+    }
+  }
+}

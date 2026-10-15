@@ -233,6 +233,23 @@ public class MainActivity extends Activity
             activeActivity = null;
         }
         AppLifecycle.destroy(handler);
+        if (rootLayout != null) {
+            rootLayout.removeAllViews();
+        }
+        if (webViewHost != null) {
+            WebView wv = webViewHost.getWebView();
+            if (wv != null) {
+                try {
+                    wv.stopLoading();
+                    wv.setWebChromeClient(null);
+                    wv.setWebViewClient(null);
+                    wv.setDownloadListener(null);
+                    wv.destroy();
+                } catch (Exception e) {
+                    Log.w(TAG, "error destroying webView", e);
+                }
+            }
+        }
         super.onDestroy();
     }
 

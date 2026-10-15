@@ -1,47 +1,34 @@
-# Build artifacts
-build/*
-!build/lib/
-!build/phases/
-!build/tools/
-!build/tests/
-!build/tests/**
-dist/*
-!dist/.gitkeep
+# Build directories and outputs
+build/
+dist/
+cache/
+*.apk
+*.dex
+*.class
+
+# Archives and binaries
+*.tar
+*.tar.gz
+*.tar.xz
+*.bin
+*.idsig
+web.old_backup/
 env/dist/
-app/gen/
-web/generated/
-core/language_server
-!core/language_server.tar.gz
-env/bootstrap/*.zip
 
 # Python cache
 __pycache__/
 *.py[cod]
 *$py.class
-.pytest_cache/
 
-# Shell Bus runtime state
-bus/run/
-bus/elements/
-
-# Logs and debug output
+# Temporary and log files
 *.log
 *.tmp
+temp/
+standalone_runtime/
 
-# Operating System files
+# IDE and OS
 .DS_Store
-Thumbs.db
-
-# Sensitive credentials & keystores
-*.keystore
-*.jks
-*.key
-*-token
-jetski-standalone-oauth-token
-
-# Local build tools
-tools/*.exe
-tools/uber-apk-signer.jar
-
-# Scratch temporary work
-scratch/
+*.swp
+*~
+.idea/
+.vscode/

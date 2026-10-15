@@ -27,6 +27,7 @@ public final class CoreProcessSupervisor {
     private final Context appContext;
     private final RuntimeManager runtime;
     private final OpenUrlWatcher openUrlWatcher;
+    private final com.agy.log.LogRingBuffer logBuffer;
     private final Runnable terminalListener;
 
     private volatile Process process;
@@ -34,10 +35,13 @@ public final class CoreProcessSupervisor {
     private Thread worker;
 
     public CoreProcessSupervisor(Context context, RuntimeManager runtime,
-                                 OpenUrlWatcher openUrlWatcher, Runnable terminalListener) {
+                                 OpenUrlWatcher openUrlWatcher,
+                                 com.agy.log.LogRingBuffer logBuffer,
+                                 Runnable terminalListener) {
         this.appContext = context.getApplicationContext();
         this.runtime = runtime;
         this.openUrlWatcher = openUrlWatcher;
+        this.logBuffer = logBuffer;
         this.terminalListener = terminalListener;
     }
 
@@ -121,6 +125,7 @@ public final class CoreProcessSupervisor {
                             + " times; giving up (last exit code " + code + ")"
                             + (tail.isEmpty() ? "" : "\n--- core.log tail ---\n" + tail);
                     CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
+                    com.agy.log.CrashRecorder.recordCrash(appContext, code, System.currentTimeMillis() - readyAt, CoreRuntimeState.lastError, logBuffer);
                     break;
                 }
                 long delay = CoreRestartPolicy.delayFor(attempt);
@@ -131,6 +136,7 @@ public final class CoreProcessSupervisor {
                         + (tail.isEmpty() ? "" : "\n--- core.log tail ---\n" + tail);
                 Log.w(TAG, CoreRuntimeState.lastError);
                 CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
+                com.agy.log.CrashRecorder.recordCrash(appContext, code, System.currentTimeMillis() - readyAt, CoreRuntimeState.lastError, logBuffer);
                 CoreLogWriter.closeQuietly(log);
                 log = null;
                 sleepInterruptible(delay);
@@ -187,6 +193,9 @@ public final class CoreProcessSupervisor {
             while ((line = reader.readLine()) != null) {
                 String safeLine = SensitiveDataRedactor.redactLine(line);
                 Log.d(TAG, safeLine);
+                if (logBuffer != null) {
+                    logBuffer.appendLine(safeLine);
+                }
                 CoreLogWriter.writeLine(log, safeLine);
                 openUrlWatcher.handleStreamLine(line);
             }

@@ -19,13 +19,13 @@ else
     targets=("$PREFIX")
 fi
 
-esc="$(printf '%s' "$PREFIX" | sed 's/[\\&|]/\\&/g')"
+esc="$(printf '%s' "$PREFIX" | sed 's/[\\&@]/\\&/g')"
 count=0
 
 while IFS= read -r -d '' f; do
     [ -n "$f" ] || continue
     tmp="$f.agyfix.$$"
-    if sed -E "s|$PATTERN|$esc|g" "$f" > "$tmp" 2>/dev/null; then
+    if sed -E "s@$PATTERN@$esc@g" "$f" > "$tmp" 2>/dev/null; then
         if cmp -s "$f" "$tmp"; then
             rm -f "$tmp"
         else

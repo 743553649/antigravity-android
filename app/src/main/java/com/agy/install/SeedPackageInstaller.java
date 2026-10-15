@@ -44,6 +44,7 @@ public final class SeedPackageInstaller {
         }
 
         boolean changed = false;
+        boolean updated = false;
         for (String packageName : packages) {
             if (isPackageAvailable(context, prefix, packageName, logFile)) {
                 state.setProperty(packageName + ".status", "ready");
@@ -62,11 +63,18 @@ public final class SeedPackageInstaller {
                 continue;
             }
 
+            if (!updated) {
+                if (!runPkg(context, prefix, "update")) {
+                    Log.w(TAG, "pkg update failed; aborting seed package installation");
+                    break;
+                }
+                updated = true;
+            }
+
             state.setProperty(packageName + ".lastAttempt", Long.toString(now));
             state.setProperty(packageName + ".status", "installing");
             writeState(stateFile, state);
-            boolean installed = runPkg(context, prefix, "update")
-                    && runPkg(context, prefix, "install", packageName)
+            boolean installed = runPkg(context, prefix, "install", packageName)
                     && isPackageAvailable(context, prefix, packageName, logFile);
             if (installed) {
                 state.setProperty(packageName + ".status", "ready");

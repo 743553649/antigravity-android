@@ -22,94 +22,43 @@ import time
 import json
 import signal
 import argparse
-import shlex
-import hmac
 import secrets
-import subprocess
-import urllib.request
-import urllib.error
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-import threading
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 
-PREFIX = os.environ.get("PREFIX") or os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-HOME = os.environ.get("HOME") or os.path.dirname(PREFIX)
-def application_id_from_prefix():
-    files_dir = os.path.dirname(os.path.normpath(PREFIX))
-    if os.path.basename(files_dir) != "files":
-        return ""
-    return os.path.basename(os.path.dirname(files_dir))
+# Ensure overlay/lib is in python path
+_SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+_OVERLAY_LIB = os.path.normpath(os.path.join(_SCRIPT_DIR, "..", "lib"))
+if _OVERLAY_LIB not in sys.path:
+    sys.path.insert(0, _OVERLAY_LIB)
 
-AGY_APPLICATION_ID = (os.environ.get("AGY_APPLICATION_ID")
-                      or os.environ.get("RISH_APPLICATION_ID")
-                      or application_id_from_prefix())
-RISH_BIN = os.path.join(PREFIX, "bin", "rish")
-BASH_BIN = os.path.join(PREFIX, "bin", "bash")
-CONFIG_DIR = os.path.join(HOME, ".gemini", "antigravity-app", "daemon")
-TASKS_FILE = os.path.join(CONFIG_DIR, "tasks.json")
-LOG_FILE = os.path.join(CONFIG_DIR, "daemon.log")
-PID_FILE = os.path.join(CONFIG_DIR, "daemon.pid")
-STOP_EVENT = threading.Event()
+from daemon.scheduler import (
+    matches_cron,
+    parse_duration,
+    daemon_loop,
+    read_daemon_pid,
+)
+from daemon.triggers import (
+    check_github_repo,
+    check_file_watcher,
+    check_battery_condition,
+    start_webhook_listener,
+)
+from daemon.executor import (
+    log,
+    notify,
+    wake_antigravity_app,
+    execute_action_async,
+    load_tasks,
+    save_tasks,
+    CONFIG_DIR,
+    TASKS_FILE,
+    LOG_FILE,
+    PID_FILE,
+    STOP_EVENT,
+    TASK_EXECUTOR,
+    RUNNING_JOBS,
+    RUNNING_LOCK,
+)
 
-# Global pool for executing tasks without blocking the main scheduler
-TASK_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="agy_worker")
-RUNNING_JOBS = set()
-RUNNING_LOCK = threading.Lock()
-
-
-def log(msg):
-    ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    formatted = f"[{ts}] {msg}"
-    print(formatted, flush=True)
-    try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(formatted + "\n")
-    except Exception:
-        pass
-
-
-def notify(title, message, tag=None):
-    log(f"Notification: {title} - {message}")
-    cmd = ["agy-notify", "post", "-t", title, "-m", message]
-    if tag:
-        cmd.extend(["--tag", tag])
-    try:
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception as e:
-        log(f"Notification failed: {e}")
-
-
-def load_tasks():
-    if not os.path.isfile(TASKS_FILE):
-        return []
-    try:
-        with open(TASKS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        log(f"Error loading tasks: {e}")
-        return []
-
-
-def save_tasks(tasks):
-    os.makedirs(CONFIG_DIR, exist_ok=True)
-    tmp_path = TASKS_FILE + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(tasks, f, indent=2, ensure_ascii=False)
-    os.replace(tmp_path, TASKS_FILE)
-
-def read_daemon_pid():
-    try:
-        with open(PID_FILE, "r", encoding="utf-8") as f:
-            raw = f.read().strip()
-        try:
-            value = json.loads(raw)
-            return int(value.get("pid", 0)) if isinstance(value, dict) else int(value)
-        except (ValueError, TypeError, json.JSONDecodeError):
-            return 0
-    except (OSError, ValueError):
-        return 0
 
 def is_our_daemon(pid):
     if pid <= 0:
@@ -122,425 +71,9 @@ def is_our_daemon(pid):
     except (OSError, PermissionError):
         return False
 
+
 def request_stop(_signum=None, _frame=None):
     STOP_EVENT.set()
-
-def wake_antigravity_app():
-    if not AGY_APPLICATION_ID:
-        log("Cannot wake app: application id was not supplied or derived from PREFIX")
-        return
-    log("Waking Antigravity activity to foreground...")
-    command = [
-        "am", "start", "-a", "android.intent.action.MAIN",
-        "-c", "android.intent.category.LAUNCHER", "-p", AGY_APPLICATION_ID
-    ]
-    try:
-        if os.path.isfile(RISH_BIN):
-            subprocess.run(
-                [RISH_BIN, "-c", " ".join(shlex.quote(part) for part in command)],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15
-            )
-        else:
-            subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
-    except Exception as e:
-        log(f"Cannot wake app: {e}")
-
-
-# -----------------------------------------------------------------------------
-# Lightweight 5-field Cron Parser
-# -----------------------------------------------------------------------------
-def _match_cron_field(val, pattern, min_val, max_val):
-    pattern = pattern.strip()
-    if pattern == "*":
-        return True
-    for part in pattern.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        if "/" in part:
-            subparts = part.split("/", 1)
-            step = int(subparts[1])
-            if subparts[0] == "*":
-                if (val - min_val) % step == 0:
-                    return True
-            else:
-                start = int(subparts[0])
-                if val >= start and (val - start) % step == 0:
-                    return True
-        elif "-" in part:
-            start, end = part.split("-", 1)
-            if int(start) <= val <= int(end):
-                return True
-        else:
-            if int(part) == val:
-                return True
-    return False
-
-
-def matches_cron(cron_expr, dt=None):
-    """
-    Checks if datetime dt matches the 5-field cron:
-    minute (0-59), hour (0-23), day of month (1-31), month (1-12), day of week (0-6, 0=Sun).
-    """
-    if dt is None:
-        dt = datetime.now()
-    fields = cron_expr.strip().split()
-    if len(fields) != 5:
-        return False
-    m, h, dom, mon, dow = fields
-
-    if not _match_cron_field(dt.minute, m, 0, 59):
-        return False
-    if not _match_cron_field(dt.hour, h, 0, 23):
-        return False
-    if not _match_cron_field(dt.day, dom, 1, 31):
-        return False
-    if not _match_cron_field(dt.month, mon, 1, 12):
-        return False
-    # weekday in Python: 0=Mon..6=Sun. In cron: 0=Sun..6=Sat (or 7=Sun)
-    cron_dow = (dt.weekday() + 1) % 7
-    if not _match_cron_field(cron_dow, dow, 0, 6):
-        return False
-    return True
-
-
-# -----------------------------------------------------------------------------
-# Task Execution (Non-blocking worker)
-# -----------------------------------------------------------------------------
-def _run_task_worker(task):
-    task_id = task.get("id", "unknown")
-    name = task.get("name", task_id)
-    command = task.get("command", "")
-    prompt = task.get("prompt", "")
-    project = task.get("project")
-    convo_id = task.get("conversation_id")
-    wake_app = task.get("wake_app", False)
-
-    with RUNNING_LOCK:
-        RUNNING_JOBS.add(task_id)
-
-    log(f"Worker started for task [{name}] (ID: {task_id})")
-
-    # If prompt is set but command is not, generate a notification + prompt action
-    if not command and prompt:
-        command = f"agy-notify post -t 'AI Task Trigger' -m '{prompt[:100]}'"
-
-    notify("Antigravity Daemon", f"Running task: {name}", tag=f"task_{task_id}")
-
-    start_t = time.time()
-    success = False
-    output = ""
-    env = os.environ.copy()
-    env["PATH"] = f"/data/user/0/com.agy/files/usr/bin:{env.get('PATH', '')}"
-    env["HOME"] = "/data/user/0/com.agy/files"
-    if convo_id:
-        env["AGY_CONVERSATION_ID"] = convo_id
-    if project:
-        env["AGY_PROJECT_DIR"] = project
-
-    cwd = project if (project and os.path.isdir(project)) else "/data/user/0/com.agy/files"
-
-    try:
-        res = subprocess.run(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=task.get("timeout_sec", 600),
-            env=env,
-            cwd=cwd,
-            executable=BASH_BIN if os.path.isfile(BASH_BIN) else "/system/bin/sh"
-        )
-        success = (res.returncode == 0)
-        output = res.stdout.strip()
-    except subprocess.TimeoutExpired:
-        output = "Task timed out."
-        log(f"Task [{name}] timed out.")
-    except Exception as e:
-        output = f"Execution error: {e}"
-        log(f"Task [{name}] failed: {e}")
-
-    duration = int(time.time() - start_t)
-    status_str = "Completed successfully" if success else "Failed"
-    log(f"Task [{name}] {status_str} in {duration}s. Output summary: {output[:200]}")
-
-    notify(
-        f"Task {status_str}: {name}",
-        f"Finished in {duration}s. {output[:120]}",
-        tag=f"task_done_{task_id}"
-    )
-
-    if wake_app:
-        wake_antigravity_app()
-
-    # Update execution metadata in task record
-    try:
-        all_tasks = load_tasks()
-        for t in all_tasks:
-            if t.get("id") == task_id:
-                t["last_run_status"] = "success" if success else "failed"
-                t["last_run_duration"] = duration
-                t["last_run_ts"] = time.time()
-                t["last_output"] = output[:1000]
-                break
-        save_tasks(all_tasks)
-    except Exception as e:
-        log(f"Error saving task completion status: {e}")
-
-    with RUNNING_LOCK:
-        RUNNING_JOBS.discard(task_id)
-
-
-def execute_action_async(task):
-    task_id = task.get("id", "unknown")
-    with RUNNING_LOCK:
-        if task_id in RUNNING_JOBS:
-            log(f"Task [{task_id}] already running. Skipping overlap.")
-            return
-    TASK_EXECUTOR.submit(_run_task_worker, task)
-
-
-# -----------------------------------------------------------------------------
-# Trigger Checks
-# -----------------------------------------------------------------------------
-def check_github_repo(trigger_info, endpoint_type="pulls"):
-    repo = trigger_info.get("repo")
-    if not repo:
-        return False
-    token = os.environ.get("GITHUB_TOKEN") or trigger_info.get("token")
-    url = f"https://api.github.com/repos/{repo}/{endpoint_type}?state=open"
-    headers = {"User-Agent": "Antigravity-Daemon", "Accept": "application/vnd.github.v3+json"}
-    if token:
-        headers["Authorization"] = f"token {token}"
-    try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-
-        last_count_key = f"last_{endpoint_type}_count"
-        last_count = trigger_info.get(last_count_key)
-        current_count = len(data)
-        trigger_info[last_count_key] = current_count
-        trigger_info["last_check_ts"] = time.time()
-
-        if last_count is not None and current_count > last_count:
-            item = data[0] if data else {}
-            title = item.get("title", f"New {endpoint_type}")
-            log(f"GitHub trigger fired for {repo} ({endpoint_type}): '{title}'")
-            return True
-    except Exception as e:
-        log(f"GitHub check error for {repo}: {e}")
-    return False
-
-
-def check_file_watcher(trigger_info):
-    target_path = trigger_info.get("path")
-    if not target_path or not os.path.exists(target_path):
-        return False
-    try:
-        last_mtime = trigger_info.get("last_mtime", 0)
-        curr_mtime = os.path.getmtime(target_path)
-        if last_mtime == 0:
-            trigger_info["last_mtime"] = curr_mtime
-            return False
-        if curr_mtime > last_mtime:
-            trigger_info["last_mtime"] = curr_mtime
-            log(f"File watch trigger fired for: {target_path}")
-            return True
-    except Exception as e:
-        log(f"File watch error: {e}")
-    return False
-
-
-def check_battery_condition(trigger_info):
-    target_level = trigger_info.get("below_level")
-    if target_level is None:
-        return False
-    try:
-        p = subprocess.run([RISH_BIN, "-c", "dumpsys battery"], stdout=subprocess.PIPE, text=True, timeout=5)
-        for line in p.stdout.splitlines():
-            if "level:" in line:
-                val = int(line.split(":", 1)[1].strip())
-                return val <= target_level
-    except Exception:
-        pass
-    return False
-
-
-def start_webhook_listener(port):
-    class WebhookHandler(BaseHTTPRequestHandler):
-        MAX_BODY_BYTES = 64 * 1024
-
-        def _reply(self, status, body):
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Connection", "close")
-            self.end_headers()
-            self.wfile.write(json.dumps(body).encode("utf-8"))
-            self.close_connection = True
-
-        def do_POST(self):
-            if self.path != "/":
-                self._reply(404, {"status": "not_found"})
-                return
-            try:
-                content_length = int(self.headers.get("Content-Length", "0"))
-            except ValueError:
-                self._reply(400, {"status": "invalid_content_length"})
-                return
-            if content_length < 0 or content_length > self.MAX_BODY_BYTES:
-                self._reply(413, {"status": "body_too_large"})
-                return
-
-            provided = self.headers.get("X-AGY-Token", "")
-            tasks = load_tasks()
-            authorized = []
-            for task in tasks:
-                trigger = task.get("trigger", {})
-                expected = trigger.get("token", "")
-                if (task.get("enabled", True)
-                        and trigger.get("type") == "webhook"
-                        and int(trigger.get("port", 45199)) == port
-                        and expected
-                        and hmac.compare_digest(str(provided), str(expected))):
-                    authorized.append(task)
-            if not authorized:
-                self._reply(401, {"status": "unauthorized"})
-                return
-
-            try:
-                body = self.rfile.read(content_length).decode("utf-8", errors="replace")
-            except Exception:
-                self._reply(400, {"status": "invalid_body"})
-                return
-            log(f"Authenticated webhook on port {port}: {body[:200]}")
-            for task in authorized:
-                execute_action_async(task)
-            self._reply(200, {"status": "ok", "fired": len(authorized)})
-
-        def log_message(self, format, *args):
-            pass
-
-    class LocalWebhookServer(ThreadingHTTPServer):
-        daemon_threads = True
-        allow_reuse_address = True
-
-    try:
-        server = LocalWebhookServer(("127.0.0.1", port), WebhookHandler)
-        log(f"Authenticated local webhook receiver listening on 127.0.0.1:{port}")
-        server.serve_forever()
-    except Exception as e:
-        log(f"Webhook listener failed on port {port}: {e}")
-
-
-# -----------------------------------------------------------------------------
-# Main Daemon Scheduler Loop
-# -----------------------------------------------------------------------------
-def daemon_loop():
-    log("Antigravity background micro-daemon loop started.")
-    webhook_threads = {}
-
-    while not STOP_EVENT.is_set():
-        try:
-            tasks = load_tasks()
-            now = time.time()
-            now_dt = datetime.now()
-            changed = False
-
-            for task in tasks:
-                if not task.get("enabled", True):
-                    continue
-
-                trigger = task.get("trigger", {})
-                ttype = trigger.get("type", "delay")
-                should_run = False
-
-                if ttype in ("once", "delay"):
-                    run_at = trigger.get("run_at", 0)
-                    if now >= run_at and not task.get("executed", False):
-                        should_run = True
-                        task["executed"] = True
-                        task["enabled"] = False
-                        changed = True
-
-                elif ttype == "interval":
-                    interval = trigger.get("interval_sec", 300)
-                    last_run = trigger.get("last_run", 0)
-                    if (now - last_run) >= interval:
-                        should_run = True
-                        trigger["last_run"] = now
-                        changed = True
-
-                elif ttype == "cron":
-                    cron_expr = trigger.get("cron", "")
-                    last_min_ts = trigger.get("last_cron_min", 0)
-                    curr_min_ts = int(now // 60)
-                    if curr_min_ts > last_min_ts:
-                        if matches_cron(cron_expr, now_dt):
-                            should_run = True
-                            trigger["last_cron_min"] = curr_min_ts
-                            changed = True
-
-                elif ttype == "github_pr":
-                    interval = trigger.get("interval_sec", 180)
-                    last_check = trigger.get("last_check_ts", 0)
-                    if (now - last_check) >= interval:
-                        if check_github_repo(trigger, "pulls"):
-                            should_run = True
-                        changed = True
-
-                elif ttype == "github_issue":
-                    interval = trigger.get("interval_sec", 180)
-                    last_check = trigger.get("last_check_ts", 0)
-                    if (now - last_check) >= interval:
-                        if check_github_repo(trigger, "issues"):
-                            should_run = True
-                        changed = True
-
-                elif ttype == "watch_file":
-                    interval = trigger.get("interval_sec", 15)
-                    last_check = trigger.get("last_check_ts", 0)
-                    if (now - last_check) >= interval:
-                        trigger["last_check_ts"] = now
-                        if check_file_watcher(trigger):
-                            should_run = True
-                        changed = True
-
-                elif ttype == "battery":
-                    interval = trigger.get("interval_sec", 300)
-                    last_check = trigger.get("last_check_ts", 0)
-                    if (now - last_check) >= interval:
-                        trigger["last_check_ts"] = now
-                        if check_battery_condition(trigger):
-                            should_run = True
-                            task["enabled"] = False
-                        changed = True
-
-                elif ttype == "webhook":
-                    port = trigger.get("port", 45199)
-                    if port not in webhook_threads:
-                        t = threading.Thread(target=start_webhook_listener, args=(port,), daemon=True)
-                        t.start()
-                        webhook_threads[port] = t
-
-                if should_run:
-                    execute_action_async(task)
-
-            if changed:
-                save_tasks(tasks)
-
-        except Exception as e:
-            log(f"Daemon scheduler error: {e}")
-
-        STOP_EVENT.wait(5)
-    try:
-        if read_daemon_pid() == os.getpid():
-            os.unlink(PID_FILE)
-    except OSError:
-        pass
-    log("Antigravity background micro-daemon stopped.")
 
 
 # -----------------------------------------------------------------------------
@@ -691,17 +224,6 @@ def cmd_status(args):
 # -----------------------------------------------------------------------------
 # AI Task Manager Operations
 # -----------------------------------------------------------------------------
-def parse_duration(s):
-    s = str(s).strip()
-    if s.endswith("h"):
-        return int(float(s[:-1]) * 3600)
-    elif s.endswith("m"):
-        return int(float(s[:-1]) * 60)
-    elif s.endswith("s"):
-        return int(float(s[:-1]))
-    return int(s)
-
-
 def cmd_task_add(args):
     tasks = load_tasks()
     task_id = f"task_{int(time.time() * 1000) % 1000000}"

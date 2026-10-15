@@ -19,7 +19,20 @@ public final class NotificationBridge {
         if (message == null) message = "";
         String cleanTag = tag != null ? tag : "agy_" + System.currentTimeMillis();
         
-        // Use elevated rish if available
+        try {
+            com.agy.gateway.handlers.NotificationHandler handler = new com.agy.gateway.handlers.NotificationHandler(context);
+            org.json.JSONObject payload = new org.json.JSONObject();
+            payload.put("title", title);
+            payload.put("message", message);
+            payload.put("tag", cleanTag);
+            org.json.JSONObject resp = handler.handle(payload);
+            if (resp.optBoolean("ok", false)) {
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+
+        // Fallback to elevated rish if available
         if (shizuku != null && shizuku.isAvailable()) {
             String safeTitle = title.replace("'", "'\\''");
             String safeMessage = message.replace("'", "'\\''");

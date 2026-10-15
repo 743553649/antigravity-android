@@ -1,0 +1,21 @@
+{
+  "static": {
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "GODEBUG": "netdns=go",
+    "ANTIGRAVITY_VSCODE_HOST": "1"
+  },
+  "relative_to_app": {
+    "HOME": ".",
+    "TMPDIR": "../cache"
+  },
+  "path_order": [
+    "{runtime}/bin",
+    "{prefix}/bin",
+    "/system/bin"
+  ],
+  "ld_library_paths": [
+    "{runtime}/lib",
+    "{prefix}/lib"
+  ]
+}

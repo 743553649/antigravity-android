@@ -20,7 +20,7 @@ public final class CoreReadyProbe {
     private static final String TAG = "CoreReadyProbe";
     public static final long READY_TIMEOUT_MS = 30000;
     /** Re-probe gap while the core boots. */
-    private static final long RETRY_SLEEP_MS = 60;
+    private static final long RETRY_SLEEP_MS = 250;
     private static volatile byte[] expectedCertDigest;
 
     private CoreReadyProbe() {
@@ -34,8 +34,8 @@ public final class CoreReadyProbe {
             }
             URL url = new URL(CoreUrl.startUrl(port));
             connection = (HttpsURLConnection) url.openConnection();
-            connection.setConnectTimeout(350);
-            connection.setReadTimeout(350);
+            connection.setConnectTimeout(800);
+            connection.setReadTimeout(800);
             connection.setUseCaches(false);
             connection.setInstanceFollowRedirects(false);
             connection.setRequestMethod("GET");

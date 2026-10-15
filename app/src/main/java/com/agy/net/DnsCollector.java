@@ -49,6 +49,7 @@ public final class DnsCollector {
         servers.addAll(ipv6);
         if (servers.isEmpty()) {
             servers.add("1.1.1.1");
+            servers.add("77.88.8.8");
             servers.add("8.8.8.8");
         }
         return servers;

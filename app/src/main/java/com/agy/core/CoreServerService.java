@@ -10,6 +10,7 @@ import android.util.Log;
 import com.agy.runtime.RuntimeManager;
 
 import java.io.File;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Foreground host for the patched core (language_server). Holds a wake lock,
@@ -24,6 +25,8 @@ public final class CoreServerService extends Service {
     private WakeLockHolder wakeLock;
     private OpenUrlWatcher openUrlWatcher;
     private CoreProcessSupervisor supervisor;
+    private com.agy.log.LogRingBuffer logBuffer;
+    private com.agy.gateway.SystemGatewayServer gatewayServer;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private volatile boolean destroyed;
 
@@ -31,9 +34,10 @@ public final class CoreServerService extends Service {
     public void onCreate() {
         super.onCreate();
         runtime = new RuntimeManager(this);
-        // Stable user-state locations, logged so an update can be verified:
-        // HOME=<filesDir>, state=$HOME/.gemini/antigravity-app, config under
-        // $HOME/.gemini/config. These never point at a temp dir.
+        logBuffer = new com.agy.log.LogRingBuffer();
+        gatewayServer = new com.agy.gateway.SystemGatewayServer(this, logBuffer, com.agy.BuildConfig.GATEWAY_PORT);
+        gatewayServer.start();
+
         Log.i(TAG, "state paths: HOME=" + getFilesDir().getAbsolutePath()
                 + " appData=" + runtime.getAppDataDir().getAbsolutePath()
                 + " projects=" + runtime.getProjectsDir().getAbsolutePath()
@@ -51,7 +55,7 @@ public final class CoreServerService extends Service {
         openUrlWatcher = new OpenUrlWatcher(this);
         openUrlWatcher.start();
 
-        supervisor = new CoreProcessSupervisor(this, runtime, openUrlWatcher,
+        supervisor = new CoreProcessSupervisor(this, runtime, openUrlWatcher, logBuffer,
                 this::onSupervisorTerminated);
         supervisor.start();
 
@@ -88,7 +92,10 @@ public final class CoreServerService extends Service {
                 pb.environment().put("PATH", getFilesDir().getAbsolutePath() + "/usr/bin:" + System.getenv("PATH"));
                 pb.environment().put("HOME", getFilesDir().getAbsolutePath());
                 Process p = pb.start();
-                p.waitFor();
+                if (!p.waitFor(1500, TimeUnit.MILLISECONDS)) {
+                    Log.w(TAG, "agy-daemon stop timed out after 1500ms; destroying forcibly");
+                    p.destroyForcibly();
+                }
             }
         } catch (Exception e) {
             Log.w(TAG, "Failed to stop agy-daemon: " + e.getMessage());
@@ -125,6 +132,9 @@ public final class CoreServerService extends Service {
     @Override
     public void onDestroy() {
         stopBackgroundDaemon();
+        if (gatewayServer != null) {
+            gatewayServer.stop();
+        }
         destroyed = true;
         mainHandler.removeCallbacksAndMessages(null);
         // Intentional stop: the watchdog must not treat the exit as a crash.

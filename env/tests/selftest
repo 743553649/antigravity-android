@@ -100,7 +100,7 @@ fi
 NOTIFY_TMP="$(mktemp -d)"
 mkdir -p "$NOTIFY_TMP/bin"
 cat > "$NOTIFY_TMP/bin/rish" <<'EOF'
-#!/bin/sh
+#!/system/bin/sh
 printf '%s\n' "$*" >> "$AGY_NOTIFY_CAPTURE"
 EOF
 chmod +x "$NOTIFY_TMP/bin/rish"

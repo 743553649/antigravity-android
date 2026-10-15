@@ -7,6 +7,12 @@ function notify() {
   state.last = theme;
   state.notifications++;
   try {
+    var isDark = (theme === 'dark');
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.classList.toggle('light', !isDark);
+    document.documentElement.style.colorScheme = theme;
+  } catch (e) { /* ignore */ }
+  try {
     if (window.Android) {
       state.hasAndroid = true;
       if (typeof window.Android.onVisualThemeChanged === 'function') {

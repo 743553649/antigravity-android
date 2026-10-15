@@ -48,7 +48,7 @@ public final class EnvInstaller {
         validatePrefixLocation(ctx, prefix);
 
         EnvBundleManifest manifest = EnvBundleManifest.load(assets);
-        String bootstrapAsset = AssetPicker.pick(assets, EnvPaths.ASSET_BOOTSTRAP);
+        String bootstrapAsset = AssetPicker.pick(assets, EnvPaths.ASSET_BOOTSTRAP, EnvPaths.ASSET_BOOTSTRAP_PLAIN);
         if (bootstrapAsset == null) {
             throw new IllegalStateException("required asset missing: " + EnvPaths.ASSET_BOOTSTRAP);
         }

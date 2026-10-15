@@ -27,6 +27,7 @@ public final class NetworkConfigWriter {
             return;
         }
         StringBuilder resolv = new StringBuilder();
+        resolv.append("options timeout:1 attempts:1 rotate\n");
         for (String ip : DnsCollector.collectDnsServers(appContext)) {
             resolv.append("nameserver ").append(ip).append('\n');
         }

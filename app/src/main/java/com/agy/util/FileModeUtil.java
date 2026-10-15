@@ -4,8 +4,6 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
 
-import com.agy.install.ChmodRunner;
-
 import java.io.File;
 
 /** Applies unix modes/exec bits to extracted runtime files. */
@@ -40,7 +38,11 @@ public final class FileModeUtil {
         if (file == null || !file.exists()) {
             return;
         }
-        ChmodRunner.rawChmod(file, "755");
+        try {
+            Os.chmod(file.getAbsolutePath(), 0755);
+        } catch (ErrnoException e) {
+            Log.w(TAG, "chmod failed " + file + ": " + e);
+        }
         file.setReadable(true, false);
         if (!file.setExecutable(true, false)) {
             Log.w(TAG, "setExecutable failed: " + file);
@@ -63,6 +65,11 @@ public final class FileModeUtil {
     }
 
     public static void applyMode(File file, long mode) {
+        try {
+            Os.chmod(file.getAbsolutePath(), (int) (mode & 0777L));
+        } catch (ErrnoException e) {
+            Log.w(TAG, "chmod failed " + file + ": " + e);
+        }
         boolean readable = (mode & 0400L) != 0;
         boolean writable = (mode & 0200L) != 0;
         boolean executable = (mode & 0100L) != 0 || file.isDirectory();
@@ -74,9 +81,9 @@ public final class FileModeUtil {
     public static void copyPermissions(File src, File dst) {
         try {
             int mode = Os.stat(src.getAbsolutePath()).st_mode & 0777;
-            ChmodRunner.rawChmod(dst, Integer.toOctalString(mode));
+            Os.chmod(dst.getAbsolutePath(), mode);
         } catch (ErrnoException e) {
-            Log.w(TAG, "cannot stat mode of " + src + ": " + e);
+            Log.w(TAG, "cannot stat/chmod mode between " + src + " and " + dst + ": " + e);
         }
     }
 }

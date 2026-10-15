@@ -15,6 +15,17 @@ function install() {
         state.observer.observe(doc.body, {
           attributes: true, attributeFilter: ['class']
         });
+      } else if (doc.addEventListener) {
+        doc.addEventListener('DOMContentLoaded', function () {
+          if (doc.body && state.observer) {
+            try {
+              state.observer.observe(doc.body, {
+                attributes: true, attributeFilter: ['class']
+              });
+            } catch (e) { /* ignore */ }
+            notify();
+          }
+        });
       }
     } catch (e) { /* ignore */ }
   }

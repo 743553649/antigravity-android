@@ -23,13 +23,13 @@ cmd_update() {
         i=$((i + 1))
         gz="$PKG_CACHE/repo.$i.Packages.gz"
         idx="$PKG_INDEX/repo.$i.Packages"
-        log "update: $url"
-        if curl -fsSL --retry 2 --connect-timeout 20 --cacert "$PKG_CERT" -o "$gz" \
-            "$url/dists/$PKG_CHANNEL/$PKG_COMPONENT/binary-$PKG_ARCH/Packages.gz"; then
+        local repo_url="$url/dists/$PKG_CHANNEL/$PKG_COMPONENT/binary-$PKG_ARCH/Packages.gz"
+        printf 'Get:%s %s %s/%s %s Packages\n' "$i" "$url" "$PKG_CHANNEL" "$PKG_COMPONENT" "$PKG_ARCH"
+        if curl -# -fL --retry 2 --connect-timeout 10 --cacert "$PKG_CERT" -o "$gz" "$repo_url"; then
             if gzip -dc "$gz" > "$idx"; then
                 printf '%s\n' "$url" > "$PKG_INDEX/repo.$i.url"
-                log "  $(wc -l < "$idx") lines"
                 got=$((got + 1))
+                break
             else
                 rm -f "$idx"
                 warn "gunzip failed: $url"
@@ -40,31 +40,71 @@ cmd_update() {
     done
     [ "$got" -gt 0 ] \
         || die "update failed: no repository index fetched (repos: ${PKG_REPOS[*]})"
+    printf 'Reading package lists... Done\n'
+    printf 'Building dependency tree... Done\n'
     index_rebuild_all
+    printf 'All packages are up to date.\n'
 }
 
 # ---------------------------------------------------------------- install
 install_one() {
-    local name="$1" entry base line ver arch fn sha url cache
+    local name="$1" idx="${2:-1}" entry base line ver arch fn sha sz url cache
     entry="$(index_lookup "$name")"
     [ -n "$entry" ] || die "unknown package: $name"
     base="${entry%%	*}"; line="${entry#*	}"
     ver="$(printf '%s' "$line" | cut -f2)"
     arch="$(printf '%s' "$line" | cut -f3)"
     fn="$(printf '%s' "$line" | cut -f9)"
+    sz="$(printf '%s' "$line" | cut -f10)"
     sha="$(printf '%s' "$line" | cut -f11)"
     [ -n "$fn" ] || die "$name: no Filename in index"
     url="$(cat "$PKG_INDEX/$base.url")/$fn"
     cache="$PKG_CACHE/$(basename "$fn")"
-    fetch "$url" "$sha" "$cache"
+    fetch "$url" "$sha" "$cache" "$sz" "$idx"
     local cver; cver="$(deb_field "$cache" Version)"
     [ -n "$cver" ] && ver="$cver"
-    log "install: $name $ver"
+    printf 'Selecting previously unselected package %s.\n' "$name"
+    printf 'Preparing to unpack .../%s ...\n' "$(basename "$fn")"
+    printf 'Unpacking %s (%s) ...\n' "$name" "$ver"
     deb_extract_data "$cache" "$PREFIX" "${PKG_DEB_STRIP:-6}" || die "$name: extract failed"
-    # Rewrite every Termux prefix in the freshly extracted tree (bin/helpers,
+    local pkg_files
+    pkg_files="$(deb_files "$cache")"
+    # Rewrite every Termux prefix only in the freshly extracted files (bin/helpers,
     # dpkg .list, python/npm console scripts) before recording the package.
-    rewrite_prefix "$PREFIX"
-    deb_files "$cache" | db_put "$name" "$ver" "$arch"
+    if [ -n "$pkg_files" ]; then
+        printf '%s\n' "$pkg_files" | sed "s|^|$PREFIX/|" | rewrite_prefix
+        printf '%s\n' "$pkg_files" | db_put "$name" "$ver" "$arch"
+    else
+        rewrite_prefix "$PREFIX"
+        printf '' | db_put "$name" "$ver" "$arch"
+    fi
+    # Auto-generate runtime bridge for any newly installed binary
+    local bin_file runtime_bin="$PREFIX/../runtime/bin"
+    if [ -d "$runtime_bin" ]; then
+        for bin_file in "$PREFIX/bin"/*; do
+            [ -f "$bin_file" ] || continue
+            local bname; bname="$(basename "$bin_file")"
+            if [ ! -f "$runtime_bin/$bname" ]; then
+                cat > "$runtime_bin/$bname" <<EOF
+#!/system/bin/sh
+PREFIX='$PREFIX'
+export PREFIX
+if [ -f "\$PREFIX/lib/libtermux-exec.so" ]; then
+  export LD_PRELOAD="\$PREFIX/lib/libtermux-exec.so"
+else
+  unset LD_PRELOAD
+fi
+export LD_LIBRARY_PATH="\$PREFIX/lib"
+export PATH="\$PREFIX/bin:/system/bin"
+export OPENSSL_CONF="\$PREFIX/etc/tls/openssl.cnf"
+export SSL_CERT_FILE="\$PREFIX/etc/tls/cert.pem"
+exec "\$PREFIX/bin/$bname" "\$@"
+EOF
+                chmod 755 "$runtime_bin/$bname" 2>/dev/null || true
+            fi
+        done
+    fi
+    printf 'Setting up %s (%s) ...\n' "$name" "$ver"
 }
 
 cmd_install() {
@@ -72,18 +112,80 @@ cmd_install() {
     db_sync_dpkg
     [ -d "$PKG_DB" ] || mkdir -p "$PKG_DB"
     index_rebuild_all
-    [ -n "$(index_tsvs)" ] || die "no index (run: pkg update)"
-    [ "$#" -ge 1 ] || die "install: need package name(s)"
-    local order n name
-    for name in "$@"; do
-        [ -n "$(index_lookup "$name")" ] || [ -n "$(index_provider "$name")" ] \
-            || db_exists "$name" || die "unknown package: $name"
+
+    local pkgs=()
+    for arg in "$@"; do
+        case "$arg" in
+            -y|--yes|-q|--quiet|-f|--fix-broken) ;; # apt compatibility flags
+            -*) die "unknown option: $arg" ;;
+            *) pkgs+=("$arg") ;;
+        esac
     done
-    order="$(resolve "$@")" || die "dependency resolution failed; no packages were installed"
+
+    [ "${#pkgs[@]}" -ge 1 ] || die "install: need package name(s)"
+    [ -n "$(index_tsvs)" ] || die "no index (run: pkg update)"
+
+    printf 'Reading package lists... Done\n'
+    printf 'Building dependency tree... Done\n'
+
+    local to_install=() already_installed=()
+    for name in "${pkgs[@]}"; do
+        if db_exists "$name"; then
+            already_installed+=("$name")
+        else
+            [ -n "$(index_lookup "$name")" ] || [ -n "$(index_provider "$name")" ] \
+                || die "E: Unable to locate package $name"
+            to_install+=("$name")
+        fi
+    done
+
+    for name in "${already_installed[@]}"; do
+        local cur_ver; cur_ver="$(db_get "$name" version)"
+        printf '%s is already the newest version (%s).\n' "$name" "${cur_ver:-unknown}"
+    done
+
+    if [ "${#to_install[@]}" -eq 0 ]; then
+        printf '0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n'
+        return 0
+    fi
+
+    local order
+    order="$(resolve "${to_install[@]}")" || die "dependency resolution failed; no packages were installed"
+
+    local new_pkgs=() total_bytes=0
     while IFS= read -r n; do
         [ -n "$n" ] || continue
-        if db_exists "$n"; then log "already installed: $n"; continue; fi
-        install_one "$n"
+        if ! db_exists "$n"; then
+            new_pkgs+=("$n")
+            local entry line sz
+            entry="$(index_lookup "$n")"
+            if [ -n "$entry" ]; then
+                line="${entry#*	}"
+                sz="$(printf '%s' "$line" | cut -f10)"
+                [ -n "$sz" ] && total_bytes=$((total_bytes + sz))
+            fi
+        fi
+    done <<EOF
+$order
+EOF
+
+    if [ "${#new_pkgs[@]}" -eq 0 ]; then
+        printf '0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n'
+        return 0
+    fi
+
+    printf 'The following NEW packages will be installed:\n'
+    printf '  %s\n' "${new_pkgs[*]}"
+    if [ "$total_bytes" -gt 0 ]; then
+        printf 'Need to get %s of archives.\n' "$(human_size "$total_bytes")"
+    fi
+
+    local fetch_idx=0
+    while IFS= read -r n; do
+        [ -n "$n" ] || continue
+        if db_exists "$n"; then continue; fi
+        fetch_idx=$((fetch_idx + 1))
+        install_one "$n" "$fetch_idx"
     done <<EOF
 $order
 EOF
@@ -94,6 +196,8 @@ cmd_upgrade() {
     db_sync_dpkg
     index_rebuild_all
     [ -n "$(index_tsvs)" ] || die "no index (run: pkg update)"
+    printf 'Reading package lists... Done\n'
+    printf 'Building dependency tree... Done\n'
     local name cur_ver entry line repo_ver c to_upgrade=() f
     for f in "$PKG_DB"/*.meta; do
         [ -e "$f" ] || continue
@@ -106,19 +210,19 @@ cmd_upgrade() {
         [ -n "$repo_ver" ] || continue
         c="$(deb_vercmp "$repo_ver" "$cur_ver")"
         if [ "$c" = "1" ]; then
-            log "upgrade available: $name ($cur_ver -> $repo_ver)"
             to_upgrade+=("$name")
         fi
     done
     if [ "${#to_upgrade[@]}" -eq 0 ]; then
-        log "all packages are up to date"
+        printf '0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n'
         return 0
     fi
-    log "upgrading ${#to_upgrade[@]} package(s): ${to_upgrade[*]}"
+    printf 'The following packages will be upgraded:\n'
+    printf '  %s\n' "${to_upgrade[*]}"
+    local idx=0
     for name in "${to_upgrade[@]}"; do
-        # install_one writes the new .meta/.files only after extraction succeeds;
-        # keep the previous ownership record until that commit point.
-        install_one "$name"
+        idx=$((idx + 1))
+        install_one "$name" "$idx"
     done
 }
 
@@ -135,10 +239,18 @@ cmd_clean() {
 
 cmd_remove() {
     ensure_dirs; load_conf
-    [ "$#" -ge 1 ] || die "remove: need package name(s)"
+    local pkgs=()
+    for arg in "$@"; do
+        case "$arg" in
+            -y|--yes|-q|--quiet) ;;
+            *) pkgs+=("$arg") ;;
+        esac
+    done
+    [ "${#pkgs[@]}" -ge 1 ] || die "remove: need package name(s)"
     local name p dir
-    for name in "$@"; do
-        if ! db_exists "$name"; then warn "not installed: $name"; continue; fi
+    for name in "${pkgs[@]}"; do
+        if ! db_exists "$name"; then warn "Package '$name' is not installed, so not removed"; continue; fi
+        printf 'Removing %s (%s) ...\n' "$name" "$(db_get "$name" version)"
         db_files "$name" | while IFS= read -r p; do
             [ -n "$p" ] || continue
             rm -f "$PREFIX/$p"
@@ -149,7 +261,6 @@ cmd_remove() {
             done
         done
         db_remove "$name"
-        log "removed: $name"
     done
 }
 
@@ -246,6 +357,10 @@ cmd_selftest() {
         st_bad "repo config does not resolve ($PKG_ETC/repo.conf)"
     fi
 
+    if [ -x "$PREFIX/bin/git" ]; then
+        st_ok "git present and runnable"
+    fi
+
     if [ "$fail" -eq 0 ]; then
         printf 'PASS  pkg selftest\n'
         return 0
@@ -257,18 +372,19 @@ cmd_selftest() {
 main() {
     local cmd="${1:-help}"; shift 2>/dev/null || true
     case "$cmd" in
-        update)    cmd_update "$@" ;;
-        upgrade)   cmd_upgrade "$@" ;;
-        install)   cmd_install "$@" ;;
-        remove)    cmd_remove "$@" ;;
-        clean)     cmd_clean "$@" ;;
-        list)      cmd_list "$@" ;;
-        installed) cmd_installed "$@" ;;
-        info)      cmd_info "$@" ;;
-        search)    cmd_search "$@" ;;
-        why)       cmd_why "$@" ;;
-        selftest)  cmd_selftest "$@" ;;
-        version)   printf 'pkg %s\n' "$PKG_VERSION" ;;
+        update)         cmd_update "$@" ;;
+        upgrade)        cmd_upgrade "$@" ;;
+        install)        cmd_install "$@" ;;
+        remove|uninstall) cmd_remove "$@" ;;
+        clean)          cmd_clean "$@" ;;
+        list)           cmd_list "$@" ;;
+        list-all)       cmd_list "$@" ;;
+        installed|list-installed) cmd_installed "$@" ;;
+        info|show)      cmd_info "$@" ;;
+        search)         cmd_search "$@" ;;
+        why)            cmd_why "$@" ;;
+        selftest)       cmd_selftest "$@" ;;
+        version)        printf 'pkg %s\n' "$PKG_VERSION" ;;
         help|-h|--help) cmd_help ;;
         *) die "unknown command: $cmd (try: pkg help)" ;;
     esac

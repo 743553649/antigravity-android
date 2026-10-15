@@ -14,7 +14,11 @@ build_bootstrap_tar() {
     local zip="$ENV_DIR/bootstrap/bootstrap-aarch64.zip"
     local out="$ENV_DIR/bootstrap/bootstrap.tar.gz"
     [ -f "$zip" ] || { log "missing $zip"; return 1; }
-    python3 "$ENV_DIR/scripts/pack_bootstrap.py" --zip "$zip" --out "$out"
+    local extra_args=()
+    for deb in "$ENV_DIR/packages"/*.deb; do
+        [ -f "$deb" ] && extra_args+=("--extra-deb" "$deb")
+    done
+    python3 "$ENV_DIR/scripts/pack_bootstrap.py" --zip "$zip" --out "$out" "${extra_args[@]}"
     log "bootstrap.tar.gz: $(du -h "$out" | cut -f1)"
 }
 

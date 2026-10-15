@@ -571,6 +571,7 @@
     "mi": "c",
     "cc": "cplus",
     "cpp": "cplus",
+    "cppm": "cplus",
     "cxx": "cplus",
     "c++": "cplus",
     "cp": "cplus",

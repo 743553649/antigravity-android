@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "core_name": "language_server",
+  "policy": {
+    "fail_closed": true,
+    "idempotent": true,
+    "no_fixed_offsets": true
+  },
+  "groups": [
+    {
+      "name": "gates",
+      "description": "Eligibility and Enterprise Auth gates bypass",
+      "expected": {
+        "cli": 2,
+        "manager": 1
+      }
+    },
+    {
+      "name": "syscalls",
+      "description": "Android seccomp faccessat2/fchmodat2 retargeting",
+      "expected": {
+        "faccessat2": 1,
+        "fchmodat2": 1
+      }
+    },
+    {
+      "name": "sigill",
+      "description": "Preserve LD_PRELOAD SIGILL handler in rt_sigaction",
+      "expected": 2
+    },
+    {
+      "name": "resolv",
+      "description": "Redirect /etc/resolv.conf",
+      "expected": 2
+    },
+    {
+      "name": "failfast",
+      "description": "ARMv8.0-A CPU feature check and preinit atomic flag bypass",
+      "expected": {
+        "cpu": 1,
+        "atomic": 1
+      }
+    }
+  ]
+}

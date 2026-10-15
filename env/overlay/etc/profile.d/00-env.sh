@@ -21,6 +21,11 @@ export AGY_APPLICATION_ID
 export SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem"
 export CURL_CA_BUNDLE="$PREFIX/etc/tls/cert.pem"
 export GIT_SSL_CAINFO="$PREFIX/etc/tls/cert.pem"
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_ATTR_NOSYSTEM=1
+export GIT_TEMPLATE_DIR="$PREFIX/share/git-core/templates"
+export GIT_EXEC_PATH="$PREFIX/libexec/git-core"
+export PAGER="less"
 export OPENSSL_CONF="$PREFIX/etc/tls/openssl.cnf"
 export LANG="${LANG:-C.UTF-8}"
 export TZ="${TZ:-UTC}"

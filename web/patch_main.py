@@ -22,46 +22,51 @@ def patch_main(file_path):
         print("[web-patch] Desktop Mode toggle already present in main.js")
         return True
 
-    # 1. State hook injection pattern in Appearance component (r4b)
-    hook_pattern = re.compile(r'(var\s+[A-Za-z0-9_$]+=f!==3,\s*[A-Za-z0-9_$]+=f!==2,\s*[A-Za-z0-9_$]+=E=>\s*G=>\{E===r&&u\(G\)\};)')
+    # 1. State hook injection pattern in Appearance component:
+    # Matches: var C=g!==3,D=g!==2,E=F=>G=>{F===t&&v(G)}; or legacy var B=f!==3,C=f!==2,D=E=>G=>{E===r&&u(G)};
+    hook_pattern = re.compile(r'(var\s+[A-Za-z0-9_$]+=[A-Za-z0-9_$]+!==3,\s*[A-Za-z0-9_$]+=[A-Za-z0-9_$]+!==2,\s*[A-Za-z0-9_$]+=[A-Za-z0-9_$]+=>\s*[A-Za-z0-9_$]+=>\{.*?\};)')
     hook_match = hook_pattern.search(content)
 
-    if not hook_match:
-        print("[web-patch] hook pattern not matched", file=sys.stderr)
+    # 2. JSX Theme element injection: find Theme element in Appearance
+    theme_pattern = re.compile(
+        r'([A-Za-z0-9_$]+)\.createElement\(([A-Za-z0-9_$]+),\{label:"Theme",.*?onSelect:[A-Za-z0-9_$]+\}\)'
+    )
+    theme_match = theme_pattern.search(content)
+
+    if not hook_match or not theme_match:
+        print(f"[web-patch] patterns not matched: hook={bool(hook_match)}, theme={bool(theme_match)}", file=sys.stderr)
         return False
+
+    react_id = theme_match.group(1)
 
     orig_hook = hook_match.group(1)
     injected_hook = (
-        "var [isDesktop,setIsDesktop]=(0,z.useState)(()=>{"
+        f"var [isDesktop,setIsDesktop]=(0,{react_id}.useState)(()=>{{"
         "try{if(window.Android&&typeof window.Android.isDesktopMode==='function')return window.Android.isDesktopMode();"
         "var s=localStorage.getItem('ag_desktop_mode');return s===null?!1:s==='true'}catch(_){return !1}});"
-        "var onDesktopToggle=(0,z.useCallback)(v=>{"
+        f"var onDesktopToggle=(0,{react_id}.useCallback)(v=>{{"
         "setIsDesktop(v);try{localStorage.setItem('ag_desktop_mode',String(v));"
         "if(window.Android&&typeof window.Android.setDesktopMode==='function')window.Android.setDesktopMode(v)}catch(_){}},[]);"
         + orig_hook
     )
 
-    # 2. JSX element injection: find Theme element inside O0 container under Appearance
-    # e.g.: z.createElement(O0,null,z.createElement(Rwb,{label:"Theme",...}))
-    theme_pattern = re.compile(
-        r'(z\.createElement\([A-Za-z0-9_$]+,null,z\.createElement\([A-Za-z0-9_$]+,\{label:"Theme",.*?onSelect:[A-Za-z0-9_$]+\}\))\)'
-    )
-    theme_match = theme_pattern.search(content)
+    # Detect switch and setting item components
+    # Look for setting item component used with rightElement or contrast setting
+    item_m = re.search(r'([A-Za-z0-9_$]+)\.createElement\(([A-Za-z0-9_$]+),\{label:[^,]+,description:[^,]+,rightElement:', content)
+    item_comp = item_m.group(2) if item_m else "v3"
 
-    if not theme_match:
-        print("[web-patch] Theme element pattern not found in Appearance", file=sys.stderr)
-        return False
+    sw_m = re.search(r'rightElement:[A-Za-z0-9_$]+\.createElement\(([A-Za-z0-9_$]+),\{checked:', content)
+    switch_comp = sw_m.group(1) if sw_m else "dX"
 
-    orig_full = theme_match.group(0) # ends with ))
-    orig_inner = theme_match.group(1) # up to before the last )
-    injected_full = (
-        orig_inner
-        + ',z.createElement(CR,{label:"Desktop Mode",description:"Use desktop viewport and user agent for the workspace",'
-        + 'rightElement:z.createElement(oQ,{checked:isDesktop,onCheckedChange:onDesktopToggle})}))'
+    orig_theme = theme_match.group(0)
+    injected_theme = (
+        orig_theme
+        + f',{react_id}.createElement({item_comp},{{label:"Desktop Mode",description:"Use desktop viewport and user agent for the workspace",'
+        + f'rightElement:{react_id}.createElement({switch_comp},{{checked:isDesktop,onCheckedChange:onDesktopToggle}})}})'
     )
 
     content = content.replace(orig_hook, injected_hook, 1)
-    content = content.replace(orig_full, injected_full, 1)
+    content = content.replace(orig_theme, injected_theme, 1)
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)

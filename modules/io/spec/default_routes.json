@@ -1,0 +1,20 @@
+{
+  "routes": [
+    {
+      "pattern": "core.url.open",
+      "outputs": ["broadcast_emitter.sh", "file_sink.py"]
+    },
+    {
+      "pattern": "agent.task.*",
+      "outputs": ["notify_tray.sh", "file_sink.py"]
+    },
+    {
+      "pattern": "system.error",
+      "outputs": ["notify_tray.sh", "file_sink.py"]
+    },
+    {
+      "pattern": "external.*",
+      "outputs": ["file_sink.py"]
+    }
+  ]
+}
