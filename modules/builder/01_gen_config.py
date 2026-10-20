@@ -6,6 +6,7 @@ import sys
 import os
 import html
 import shutil
+import re
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
@@ -42,8 +43,8 @@ def main():
     port_dev = env.get("PORT_DEV", "45158")
     gw_port = env.get("GATEWAY_PORT_DEV", "45161") if is_dev else env.get("GATEWAY_PORT", "45160")
     core_version = env.get("CORE_VERSION", "2.11.0")
-    app_version_name = env.get("APP_VERSION_NAME", "2.3.0")
-    app_version_code = env.get("APP_VERSION_CODE", "15")
+    app_version_name = env.get("APP_VERSION_NAME", "2.4.0")
+    app_version_code = env.get("APP_VERSION_CODE", "16")
     oauth_scheme = env.get("OAUTH_SCHEME", "antigravity")
     app_name = env.get("APP_NAME_DEV", "Antigravity Dev") if is_dev else env.get("APP_NAME", "Antigravity")
     min_api = env.get("MIN_API", "24")
@@ -93,6 +94,8 @@ def main():
         content = f.read()
 
     content = content.replace('${applicationId}', app_id)
+    content = re.sub(r'android:versionName="[^"]+"', f'android:versionName="{app_version_name}"', content)
+    content = re.sub(r'android:versionCode="[^"]+"', f'android:versionCode="{app_version_code}"', content)
 
     if is_dev:
         content = content.replace('package="com.agy"', 'package="com.agy.dev"')
