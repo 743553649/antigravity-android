@@ -58,33 +58,29 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+BASE_PREFIX="${CUSTOM_PREFIX:-antigravity}"
+
 if [ -n "$CUSTOM_OUT" ]; then
     OUT_APK="$CUSTOM_OUT"
     EDITION_LABEL="CUSTOM OUTPUT ($OUT_APK)"
-elif [ -n "$CUSTOM_PREFIX" ]; then
-    if [ "$DEV_MODE" = "1" ]; then
-        OUT_APK="$DIST_DIR/${CUSTOM_PREFIX}-dev.apk"
-    else
-        OUT_APK="$DIST_DIR/${CUSTOM_PREFIX}.apk"
-    fi
-    EDITION_LABEL="CUSTOM PREFIX ($OUT_APK)"
 elif [ "$DEV_MODE" = "1" ]; then
     if [ "$NO_BYPASS" = "1" ]; then
-        OUT_APK="$DIST_DIR/agy-dev-nobypass.apk"
+        OUT_APK="$DIST_DIR/${BASE_PREFIX}-dev-nobypass.apk"
         EDITION_LABEL="DEV EDITION WITHOUT BYPASS (com.agy.dev, port 45158, standard gates)"
     else
-        OUT_APK="$DIST_DIR/agy-dev.apk"
+        OUT_APK="$DIST_DIR/${BASE_PREFIX}-dev.apk"
         EDITION_LABEL="DEV EDITION (com.agy.dev, port 45158, debuggable, with bypass)"
     fi
 else
     if [ "$NO_BYPASS" = "1" ]; then
-        OUT_APK="$DIST_DIR/agy-nobypass.apk"
+        OUT_APK="$DIST_DIR/${BASE_PREFIX}-nobypass.apk"
         EDITION_LABEL="RELEASE EDITION WITHOUT BYPASS (com.agy, port 45157, standard gates)"
     else
-        OUT_APK="$DIST_DIR/agy.apk"
+        OUT_APK="$DIST_DIR/${BASE_PREFIX}.apk"
         EDITION_LABEL="RELEASE EDITION (com.agy, port 45157, with bypass)"
     fi
 fi
+
 
 echo "============================================================"
 echo "  ANTIGRAVITY V2 APK BUILD PIPELINE"

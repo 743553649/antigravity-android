@@ -46,7 +46,7 @@ flowchart TD
         Unaligned --> P07[align.py: zipalign / python]
         P07 -->|4-byte aligned APK| Aligned[build/aligned.apk]
         Aligned --> P08[08_sign.sh: apksigner]
-        P08 -->|Signed APK (v1+v2+v3)| Dist[dist/agy.apk / agy-dev.apk]
+        P08 -->|Signed APK (v1+v2+v3)| Dist[dist/antigravity.apk / antigravity-dev.apk]
         Dist --> P09[09_verify.sh: apksigner verify]
     end
 ```
@@ -64,7 +64,7 @@ flowchart TD
 | **05** | [`05_stage_assets.py`](05_stage_assets.py) | Python 3 + `modules/runner` | Ядро рантайма, `web/`, `env/dist/env` | `build/staging/assets/` | Сборка и верификация ассетов (runtime, web, env) |
 | **06** | [`06_package.sh`](06_package.sh) | `aapt` + `zipfile` | Ресурсы + оверлей `build/res`, манифест, `classes.dex`, `staging/assets/` | `build/unaligned.apk` | Создание базового APK с оверлеем и инъекция dex и ассетов |
 | **07** | [`align.py`](align.py) | `zipalign` / Python | `build/unaligned.apk` | `build/aligned.apk` | 4-байтовое выравнивание ZIP-архива для `mmap` |
-| **08** | [`08_sign.sh`](08_sign.sh) | `apksigner` | `build/aligned.apk`, `tools/debug.keystore` | `dist/agy.apk` или `dist/agy-dev.apk` | Подпись схемами v1, v2 и v3 |
+| **08** | [`08_sign.sh`](08_sign.sh) | `apksigner` | `build/aligned.apk`, `tools/debug.keystore` | `dist/antigravity.apk` или `dist/antigravity-dev.apk` | Подпись схемами v1, v2 и v3 |
 | **09** | [`09_verify.sh`](09_verify.sh) | `apksigner` | `dist/*.apk` | Результат проверки в stdout | Полная проверка валидности и схемы подписи |
 
 ---
@@ -137,10 +137,13 @@ flowchart TD
 ## 5. Использование
 
 ```bash
-# Стандартная сборка релизного APK (dist/agy.apk, порт 45157):
+# Стандартная сборка релизного APK с обходом блокировок (dist/antigravity.apk, порт 45157):
 bash modules/builder/build_apk.sh
 
-# Сборка dev-версии для отладки (dist/agy-dev.apk, com.agy.dev, debuggable, порт 45158):
+# Сборка релизной версии без обхода блокировок (dist/antigravity-nobypass.apk, порт 45157):
+bash modules/builder/build_apk.sh --no-bypass
+
+# Сборка dev-версии для отладки (dist/antigravity-dev.apk, com.agy.dev, debuggable, порт 45158):
 bash modules/builder/build_apk.sh --dev
 
 # Запуск тестов модуля builder:
@@ -178,8 +181,8 @@ bash modules/builder/tests/run_all.sh
 - **Решение**: Проброс флага `FAST_BUILD` в `05_stage_assets.py` и `06_package.sh` для инкрементальной сборки и пропуска неизменившихся ассетов ядра.
 
 ### 7. Избыточный дисковый I/O на флеш-памяти
-- **Проблема**: Полная запись APK на диск выполняется 3 раза подряд: `unaligned.apk` (~103 МБ) -> `aligned.apk` (~103 МБ) -> `dist/agy.apk` (~103 МБ). Суммарная запись >300 МБ изнашивает flash-память Android-устройства.
-- **Решение**: Выполнять `align.py` сразу в целевой файл `$DIST_DIR/agy.apk` и подписывать его на месте (`in-place signing`).
+- **Проблема**: Полная запись APK на диск выполняется 3 раза подряд: `unaligned.apk` (~103 МБ) -> `aligned.apk` (~103 МБ) -> `dist/antigravity.apk` (~103 МБ). Суммарная запись >300 МБ изнашивает flash-память Android-устройства.
+- **Решение**: Выполнять `align.py` сразу в целевой файл `$DIST_DIR/antigravity.apk` и подписывать его на месте (`in-place signing`).
 
 ### 8. Интеграция веб-сборщика и предотвращение утечки манифестов (исправлено)
 - **Проблема**: В `05_stage_assets.py` веб-ассеты копировались «как есть» из `web/` без предварительного запуска сборки, из-за чего изменения в `web/src/` могли не попадать в APK. Кроме того, в фильтре `web_ignore` отсутствовал `src.manifest`, в результате чего манифест исходников попадал в ресурсы APK.

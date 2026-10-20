@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ALIGNED_APK="${1:-$BUILD_DIR/aligned.apk}"
-OUT_APK="${2:-$DIST_DIR/agy.apk}"
+OUT_APK="${2:-$DIST_DIR/antigravity.apk}"
 KEYSTORE="${3:-$TOOLS_DIR/debug.keystore}"
 KEY_ALIAS="${4:-androiddebugkey}"
 KEY_PASS="${5:-android}"

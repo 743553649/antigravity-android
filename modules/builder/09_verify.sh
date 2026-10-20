@@ -2,7 +2,7 @@
 # 09_verify.sh - Verifies APK signature scheme and integrity using apksigner.
 set -euo pipefail
 
-APK="${1:-$DIST_DIR/agy.apk}"
+APK="${1:-$DIST_DIR/antigravity.apk}"
 
 echo "[*] [09_verify] Verifying APK signature..."
 [ -f "$APK" ] || { echo "Error: APK not found: $APK" >&2; exit 1; }
