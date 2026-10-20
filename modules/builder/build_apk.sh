@@ -21,7 +21,8 @@ export LC_ALL=C.UTF-8
 
 export FAST_BUILD=0
 export DEV_MODE=0
-export NO_BYPASS="${NO_BYPASS:-0}"
+export NO_BYPASS="${NO_BYPASS:-1}"
+if [ "${REGION_BYPASS:-0}" = "1" ] || [ "${BYPASS:-0}" = "1" ]; then export NO_BYPASS=0; fi
 if [ "${SKIP_GATES:-0}" = "1" ]; then export NO_BYPASS=1; fi
 export CUSTOM_PREFIX=""
 export CUSTOM_OUT=""
@@ -36,12 +37,12 @@ while [ $# -gt 0 ]; do
             export DEV_MODE=1
             shift
             ;;
-        --no-bypass|--nobypass|--no-region-bypass|--skip-gates|--no-gates|--standard)
-            export NO_BYPASS=1
-            shift
-            ;;
         --bypass|--region-bypass)
             export NO_BYPASS=0
+            shift
+            ;;
+        --no-bypass|--nobypass|--no-region-bypass|--skip-gates|--no-gates|--standard)
+            export NO_BYPASS=1
             shift
             ;;
         --prefix)
@@ -65,20 +66,20 @@ if [ -n "$CUSTOM_OUT" ]; then
     OUT_APK="$CUSTOM_OUT"
     EDITION_LABEL="CUSTOM OUTPUT ($OUT_APK)"
 elif [ "$DEV_MODE" = "1" ]; then
-    if [ "$NO_BYPASS" = "1" ]; then
-        OUT_APK="$DIST_DIR/${BASE_PREFIX}-dev-nobypass.apk"
-        EDITION_LABEL="DEV EDITION WITHOUT BYPASS (com.agy.dev, port 45158, standard gates)"
+    if [ "$NO_BYPASS" = "0" ]; then
+        OUT_APK="$DIST_DIR/${BASE_PREFIX}-dev-region-bypass.apk"
+        EDITION_LABEL="DEV EDITION WITH REGION BYPASS (com.agy.dev, port 45158, debuggable)"
     else
         OUT_APK="$DIST_DIR/${BASE_PREFIX}-dev.apk"
-        EDITION_LABEL="DEV EDITION (com.agy.dev, port 45158, debuggable, with bypass)"
+        EDITION_LABEL="DEV EDITION STANDARD (com.agy.dev, port 45158, debuggable, standard gates)"
     fi
 else
-    if [ "$NO_BYPASS" = "1" ]; then
-        OUT_APK="$DIST_DIR/${BASE_PREFIX}-nobypass.apk"
-        EDITION_LABEL="RELEASE EDITION WITHOUT BYPASS (com.agy, port 45157, standard gates)"
+    if [ "$NO_BYPASS" = "0" ]; then
+        OUT_APK="$DIST_DIR/${BASE_PREFIX}-region-bypass.apk"
+        EDITION_LABEL="RELEASE EDITION WITH REGION BYPASS (com.agy, port 45157, with account eligibility bypass)"
     else
         OUT_APK="$DIST_DIR/${BASE_PREFIX}.apk"
-        EDITION_LABEL="RELEASE EDITION (com.agy, port 45157, with bypass)"
+        EDITION_LABEL="RELEASE EDITION STANDARD (com.agy, port 45157, original gates)"
     fi
 fi
 
@@ -128,6 +129,8 @@ echo -e "\n>>> [5/8] Staging Runtime and Web Assets..."
 STAGE_FLAGS=()
 if [ "$NO_BYPASS" = "1" ]; then
     STAGE_FLAGS+=(--no-bypass)
+else
+    STAGE_FLAGS+=(--region-bypass)
 fi
 python3 "$SCRIPT_DIR/05_stage_assets.py" "$BUILD_DIR/staging" "${STAGE_FLAGS[@]}"
 

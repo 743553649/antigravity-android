@@ -70,8 +70,10 @@ def main():
     staging_dir = os.path.join(PROJECT_ROOT, "build", "staging")
     no_bypass = (os.environ.get("NO_BYPASS") == "1") or (os.environ.get("SKIP_GATES") == "1")
     for arg in sys.argv[1:]:
-        if arg in ("--no-bypass", "--nobypass", "--skip-gates", "--no-gates"):
+        if arg in ("--no-bypass", "--nobypass", "--skip-gates", "--no-gates", "--standard"):
             no_bypass = True
+        elif arg in ("--bypass", "--region-bypass", "--with-bypass"):
+            no_bypass = False
         elif not arg.startswith("-"):
             staging_dir = arg
     stage_assets(staging_dir, no_bypass=no_bypass)

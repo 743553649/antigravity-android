@@ -137,14 +137,11 @@ flowchart TD
 ## 5. Использование
 
 ```bash
-# Стандартная сборка релизного APK с обходом блокировок (dist/antigravity.apk, порт 45157):
+# Стандартная сборка релизного APK (dist/antigravity.apk, порт 45157):
 bash modules/builder/build_apk.sh
 
-# Сборка релизной версии без обхода блокировок (dist/antigravity-nobypass.apk, порт 45157):
-bash modules/builder/build_apk.sh --no-bypass
-
-# Сборка dev-версии для отладки (dist/antigravity-dev.apk, com.agy.dev, debuggable, порт 45158):
-bash modules/builder/build_apk.sh --dev
+# Сборка релизной версии с обходом проверок (dist/antigravity-region-bypass.apk, порт 45157):
+bash modules/builder/build_apk.sh --region-bypass
 
 # Запуск тестов модуля builder:
 bash modules/builder/tests/run_all.sh

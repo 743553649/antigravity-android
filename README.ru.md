@@ -60,9 +60,8 @@
 ### Быстрый старт
 
 1. **Скачайте APK** со страницы [Releases](https://github.com/werdio325-png/antigravity-android/releases):
-   * `antigravity.apk` — стандартная версия (с обходом проверки неподдерживаемых аккаунтов).
-   * `antigravity-nobypass.apk` — стандартная версия без обхода (оригинальные проверки аккаунтов Google).
-   * `antigravity-dev.apk` — отладочная версия для разработчиков.
+   * `antigravity.apk` — стандартная версия (оригинальные проверки Google).
+   * `antigravity-region-bypass.apk` — версия с обходом проверки учетных записей.
 2. **Предоставьте доступ к памяти** (`Все файлы`). *(Опционально: подключите Shizuku для доступа к ADB)*.
 3. **Установите рабочее окружение** в терминале или через агента:
    ```bash
@@ -74,14 +73,11 @@
 ### Сборка и тестирование
 
 ```bash
-# Сборка релизного APK с обходом проверки аккаунтов (dist/antigravity.apk):
+# Сборка стандартного релизного APK (dist/antigravity.apk):
 bash build.sh
 
-# Сборка релизного APK без обхода проверок (dist/antigravity-nobypass.apk):
-bash build.sh --no-bypass
-
-# Сборка dev-редакции (dist/antigravity-dev.apk):
-bash build.sh --dev
+# Сборка релизного APK с обходом проверок (dist/antigravity-region-bypass.apk):
+bash build.sh --region-bypass
 
 # Запуск полного набора тестов:
 bash test_all_modules.sh

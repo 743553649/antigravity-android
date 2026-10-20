@@ -92,22 +92,18 @@ jobs:
             export AGY_HOME="$PWD/vendor"
           fi
 
-      - name: Build Standard Release APK with Account Bypass (dist/antigravity.apk)
+      - name: Build Standard Release APK (dist/antigravity.apk)
         run: |
           bash build.sh
 
-      - name: Build Release APK without Bypass (dist/antigravity-nobypass.apk)
+      - name: Build Region Bypass Release APK (dist/antigravity-region-bypass.apk)
         run: |
-          bash build.sh --no-bypass
-
-      - name: Build Dev Edition APK (dist/antigravity-dev.apk)
-        run: |
-          bash build.sh --dev
+          bash build.sh --region-bypass
 
       - name: Compute Cryptographic Checksums
         run: |
           cd dist
-          sha256sum antigravity.apk antigravity-nobypass.apk antigravity-dev.apk > SHA256SUMS.txt
+          sha256sum antigravity.apk antigravity-region-bypass.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Upload Build Artifacts
@@ -116,8 +112,7 @@ jobs:
           name: antigravity-binaries
           path: |
             dist/antigravity.apk
-            dist/antigravity-nobypass.apk
-            dist/antigravity-dev.apk
+            dist/antigravity-region-bypass.apk
             dist/SHA256SUMS.txt
 
       - name: Publish GitHub Release
@@ -131,8 +126,7 @@ jobs:
           make_latest: true
           files: |
             dist/antigravity.apk
-            dist/antigravity-nobypass.apk
-            dist/antigravity-dev.apk
+            dist/antigravity-region-bypass.apk
             dist/SHA256SUMS.txt
           body: |
             <div align="center">
@@ -146,9 +140,8 @@ jobs:
 
             | Package | Description |
             | :--- | :--- |
-            | **`antigravity.apk`** | Standard release with account eligibility check bypass (com.agy, port 45157) |
-            | **`antigravity-nobypass.apk`** | Standard release without bypass (strict original Google account checks; com.agy, port 45157) |
-            | **`antigravity-dev.apk`** | Developer debug edition (com.agy.dev, port 45158, debuggable) |
+            | **`antigravity.apk`** | Standard production release with native bionic engine (com.agy, port 45157) |
+            | **`antigravity-region-bypass.apk`** | Region bypass edition with account eligibility check bypass (com.agy, port 45157) |
             | **`SHA256SUMS.txt`** | Cryptographic checksums for package integrity verification |
 
             ---
