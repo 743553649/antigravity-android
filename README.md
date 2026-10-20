@@ -60,8 +60,8 @@ No PRoot, chroot, or virtualization overhead. Antigravity runs **bare-metal insi
 ### Quick Start
 
 1. **Download APK** from [Releases](https://github.com/werdio325-png/antigravity-android/releases):
-   * `antigravity.apk` — standard release (with region bypass).
-   * `antigravity-nobypass.apk` — standard release without bypass (standard gates).
+   * `antigravity.apk` — standard release with account eligibility check bypass.
+   * `antigravity-nobypass.apk` — standard release without bypass (strict original Google account checks).
    * `antigravity-dev.apk` — developer debug edition.
 2. **Grant Storage Permission** (`All Files Access`). *(Optional: enable Shizuku for ADB access)*.
 3. **Install Runtimes** via terminal or agent:
@@ -74,7 +74,7 @@ No PRoot, chroot, or virtualization overhead. Antigravity runs **bare-metal insi
 ### Building & Testing
 
 ```bash
-# Build release APK with bypass (dist/antigravity.apk):
+# Build release APK with account check bypass (dist/antigravity.apk):
 bash build.sh
 
 # Build release APK without bypass (dist/antigravity-nobypass.apk):

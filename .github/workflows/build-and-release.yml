@@ -92,7 +92,7 @@ jobs:
             export AGY_HOME="$PWD/vendor"
           fi
 
-      - name: Build Standard Release APK with Bypass (dist/antigravity.apk)
+      - name: Build Standard Release APK with Account Bypass (dist/antigravity.apk)
         run: |
           bash build.sh
 
@@ -146,8 +146,8 @@ jobs:
 
             | Package | Description |
             | :--- | :--- |
-            | **`antigravity.apk`** | Standard release with region bypass (com.agy, port 45157) |
-            | **`antigravity-nobypass.apk`** | Standard release without bypass (standard gates, com.agy, port 45157) |
+            | **`antigravity.apk`** | Standard release with account eligibility check bypass (com.agy, port 45157) |
+            | **`antigravity-nobypass.apk`** | Standard release without bypass (strict original Google account checks; com.agy, port 45157) |
             | **`antigravity-dev.apk`** | Developer debug edition (com.agy.dev, port 45158, debuggable) |
             | **`SHA256SUMS.txt`** | Cryptographic checksums for package integrity verification |
 
