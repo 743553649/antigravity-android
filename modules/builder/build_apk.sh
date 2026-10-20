@@ -9,11 +9,12 @@ export DIST_DIR="$PROJECT_ROOT/dist"
 export APP_DIR="$PROJECT_ROOT/app"
 export TOOLS_DIR="$PROJECT_ROOT/tools"
 
-export PATH="/data/user/0/com.agy.dev/files/usr/bin:/data/user/0/com.agy/files/usr/bin:$PATH"
 if [ -d "/data/user/0/com.agy.dev/files" ] && [ -w "/data/user/0/com.agy.dev/files" ]; then
     export HOME="/data/user/0/com.agy.dev/files"
-else
+    export PATH="/data/user/0/com.agy.dev/files/usr/bin:$PATH"
+elif [ -d "/data/user/0/com.agy/files" ] && [ -w "/data/user/0/com.agy/files" ]; then
     export HOME="/data/user/0/com.agy/files"
+    export PATH="/data/user/0/com.agy/files/usr/bin:$PATH"
 fi
 export LANG=C.UTF-8
 export LC_ALL=C.UTF-8

@@ -25,8 +25,14 @@ die() { printf 'build.sh: %s\n' "$*" >&2; exit 1; }
 rm -rf "$GEN_DIR"
 mkdir -p "$GEN_DIR"
 
-TMP_DIR="${TMPDIR:-${HOME:-.}/.tmp}"
-mkdir -p "$TMP_DIR"
+if [ -n "${TMPDIR:-}" ] && [ -d "$TMPDIR" ] && [ -w "$TMPDIR" ]; then
+    TMP_DIR="$TMPDIR"
+elif [ -n "${HOME:-}" ] && [ -d "$HOME" ] && [ -w "$HOME" ]; then
+    TMP_DIR="$HOME/.tmp"
+else
+    TMP_DIR="/tmp"
+fi
+mkdir -p "$TMP_DIR" 2>/dev/null || TMP_DIR="."
 bundle_tmp="$(mktemp "$TMP_DIR/agy-web-bundle.XXXXXX")"
 trap 'rm -f "$bundle_tmp"' EXIT
 
