@@ -12,6 +12,7 @@ cache/
 *.tar.xz
 *.bin
 *.idsig
+!modules/core/pristine/language_server.tar.gz
 web.old_backup/
 env/dist/
 
