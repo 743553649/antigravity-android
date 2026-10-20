@@ -10,7 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 export PREFIX="${PREFIX:-$(cd -- "$SCRIPT_DIR/.." 2>/dev/null && pwd)}"
-export HOME="${HOME:-/data/user/0/$(basename "$(dirname "$PREFIX")")/files}"
+export HOME="${HOME:-$(dirname "$PREFIX")}"
 export PATH="$PREFIX/bin:$PATH"
 
 BACKUP_ROOT="/storage/emulated/0/Documents/antigravity-backup"

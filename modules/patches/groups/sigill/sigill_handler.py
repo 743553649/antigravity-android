@@ -16,8 +16,8 @@ REPLACEMENT = bytes.fromhex("e08740a9e28f41a91f1000f1c81080d240000054010000d4ff2
 EXPECTED_COUNT = 2
 
 def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_missing: bool = False) -> Tuple[bool, Dict[str, Any]]:
-    raw_offsets = byte_replacer.find_offsets(bytes(data), TARGET)
-    pat_offsets = byte_replacer.find_offsets(bytes(data), REPLACEMENT)
+    raw_offsets = byte_replacer.find_offsets(data, TARGET)
+    pat_offsets = byte_replacer.find_offsets(data, REPLACEMENT)
     
     total = len(raw_offsets) + len(pat_offsets)
     info = {

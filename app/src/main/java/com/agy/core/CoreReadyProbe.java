@@ -18,9 +18,9 @@ import javax.net.ssl.HttpsURLConnection;
 public final class CoreReadyProbe {
 
     private static final String TAG = "CoreReadyProbe";
-    public static final long READY_TIMEOUT_MS = 30000;
+    public static final long READY_TIMEOUT_MS = 60000;
     /** Re-probe gap while the core boots. */
-    private static final long RETRY_SLEEP_MS = 250;
+    private static final long RETRY_SLEEP_MS = 60;
     private static volatile byte[] expectedCertDigest;
 
     private CoreReadyProbe() {

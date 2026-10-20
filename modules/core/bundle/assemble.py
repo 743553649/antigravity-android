@@ -4,6 +4,7 @@ assemble.py - High-level orchestrator assembling the complete runtime directory.
 """
 import sys
 import os
+import shutil
 import argparse
 
 # Local imports
@@ -44,11 +45,9 @@ def assemble_runtime(core_bin_path: str, module_root: str, out_dir: str, dry_run
     bins = pack_binaries.pack_binaries(core_bin_path, loader_path, shims_dir, dirs["bin"])
     print(f"  + Packed {len(bins)} binaries and shims")
 
-    # 3. Pack libraries
+    # 3. Pack libraries and network configs
     libs = pack_libraries.pack_libraries(glibc_dir, dirs["lib"])
-    # Copy loader to lib/ as well for direct loader resolution
-    pack_libraries.shutil.copyfile(loader_path, os.path.join(dirs["lib"], "ld-linux-aarch64.so.1"))
-    print(f"  + Packed {len(libs) + 1} libraries")
+    print(f"  + Packed {len(libs)} libraries and configs")
 
     # 4. Pack certificates
     certs = pack_certs.pack_certs(certs_dir, dirs["certs"])

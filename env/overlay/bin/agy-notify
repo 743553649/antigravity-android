@@ -74,16 +74,24 @@ if [ "$CMD" = "post" ]; then
     fi
 
     if [ -x "$RISH_BIN" ]; then
-        # Cache an optional logo for high-resolution notifications.
+        # Optional high-resolution logo cache with safe fallback to system default icon.
         LOGO_CACHE="/data/local/tmp/agy_logo.png"
-        SRC_LOGO="/storage/emulated/0/Documents/antigravity_release/docs/assets/logo.png"
-        if [ ! -f "$LOGO_CACHE" ] && [ -f "$SRC_LOGO" ]; then
-            "$RISH_BIN" -c "cp -f $(printf %q "$SRC_LOGO") $(printf %q "$LOGO_CACHE") && chmod 644 $(printf %q "$LOGO_CACHE")" 2>/dev/null || true
-        fi
+        SRC_LOGO=""
+        for candidate in "${AGY_LOGO:-}" "$PREFIX/share/antigravity/logo.png" "$PREFIX/share/pixmaps/antigravity.png"; do
+            if [ -n "$candidate" ] && [ -f "$candidate" ]; then
+                SRC_LOGO="$candidate"
+                break
+            fi
+        done
 
         LARGE_ICON_OPT=""
-        if "$RISH_BIN" -c "test -f $LOGO_CACHE" 2>/dev/null; then
-            LARGE_ICON_OPT="-I file://$LOGO_CACHE"
+        if [ -n "$SRC_LOGO" ]; then
+            if ! "$RISH_BIN" -c "test -f $LOGO_CACHE" 2>/dev/null; then
+                "$RISH_BIN" -c "cp -f $(printf %q "$SRC_LOGO") $(printf %q "$LOGO_CACHE") && chmod 644 $(printf %q "$LOGO_CACHE")" 2>/dev/null || true
+            fi
+            if "$RISH_BIN" -c "test -f $LOGO_CACHE" 2>/dev/null; then
+                LARGE_ICON_OPT="-I file://$LOGO_CACHE"
+            fi
         fi
 
         "$RISH_BIN" -c "cmd notification post -S bigtext $LARGE_ICON_OPT -t $(printf %q "$TITLE") $(printf %q "$TAG") $(printf %q "$BODY_TEXT")" 2>/dev/null && exit 0

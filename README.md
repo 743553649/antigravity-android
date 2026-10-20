@@ -1,207 +1,147 @@
-# Antigravity v2 — Modular Android Runtime & App (Level 999999+1)
+<div align="center">
 
-Полная независимая модульная пересборка проекта Antigravity для Android. Проект спроектирован по принципам Unix-философии и экстремальной модульности: **каждый файл решает строго одну задачу** (<50–100 строк кода), без монолитных зависимостей, с полной независимостью от предыдущих наработок.
+  <p>
+    <b>English</b> &nbsp;&bull;&nbsp; <a href="README.ru.md">Русский</a>
+  </p>
 
----
+  <br/>
 
-## 1. Архитектурная карта проекта
+  <img src="docs/assets/logo.png" alt="Antigravity" width="88" height="88" style="border-radius: 20px;" />
 
-```
-antigravity_v2/
-│
-├── modules/                               # Автономные системные модули
-│   ├── core/                              # Ядро и среда выполнения
-│   │   ├── binary/                        # Валидация ELF, проверка ARMv8.1-A LSE, права доступа
-│   │   ├── glibc/                         # Распаковка и проверка динамического компоновщика
-│   │   ├── rootfs/                        # Извлечение базовой rootfs и оверлеев
-│   │   ├── integrity/                     # Криптографический манифест SHA-256
-│   │   └── tests/                         # Автотесты core (11 тестов)
-│   │
-│   ├── patches/                           # Бинарные микро-патчи ядра (Go language_server)
-│   │   ├── gates/                         # CLI-гейты (обход обязательных флагов окружения)
-│   │   ├── auth/                          # Патч корпоративной авторизации и gRPC
-│   │   ├── syscalls/                      # Обход faccessat / fchmodat для Android Bionic
-│   │   ├── signals/                       # Локализация и перехват kernel SIGILL
-│   │   ├── network/                       # Редирект resolv.conf для Android DNS
-│   │   ├── failfast/                      # Подавление паник и мгновенных крашей
-│   │   ├── engine/                        # Движок микро-патчинга с SHA-256 верификацией
-│   │   └── tests/                         # Юнит-тесты и регрессионный скан
-│   │
-│   ├── io/                                # Универсальная шина ввода-вывода (I/O Bus)
-│   │   ├── bus/                           # Event Broker, JSON Envelopes, маршрутизация подписчиков
-│   │   ├── pipes/                         # Именованные каналы (FIFO) и Unix Domain Sockets
-│   │   ├── splitters/                     # Разделитель потоков stdout/stderr ядра
-│   │   ├── filters/                       # Фильтры событий: URL, статусы задач, ошибки
-│   │   └── tests/                         # Автотесты шины I/O
-│   │
-│   ├── env/                               # Окружение, CLI и расширенные логи выполнения
-│   │   ├── context/                       # Резолвер путей ($PREFIX, $HOME, $TMPDIR) и env-builder
-│   │   ├── diagnostics/                   # Проверка портов, preflight readiness чеки
-│   │   ├── logging/                       # Логирование, Flight Recorder, кольцевые буферы
-│   │   ├── bridge/                        # HTTP-клиент к SystemGateway
-│   │   ├── cmd/                           # Движок выполнения команд с полным захватом телеметрии
-│   │   ├── cli/                           # CLI утилиты: agy_system, agy_logs
-│   │   └── tests/                         # Автотесты env и cli
-│   │
-│   ├── builder/                           # Модульный конвейер сборки APK
-│   │   ├── 01_gen_config.py               # Генератор BuildConfig, gen.xml и AndroidManifest.xml
-│   │   ├── 02_r_java.sh                   # Компиляция Android-ресурсов (aapt)
-│   │   ├── 03_compile_java.sh             # Компиляция Java-исходников (javac)
-│   │   ├── 04_dex.sh                      # Трансляция в Dalvik Executable (D8)
-│   │   ├── 05_stage_assets.py             # Сборка ассетов (патченное ядро, web, rootfs)
-│   │   ├── 06_package.sh                  # Упаковка APK-контейнера
-│   │   ├── align.py                       # 4-байтовое выравнивание ZIP
-│   │   ├── 08_sign.sh                     # Подпись APK схемы v2/v3 (apksigner)
-│   │   ├── 09_verify.sh                   # Верификация криптографической подписи
-│   │   └── build_apk.sh                   # Главный оркестратор сборки (--dev, --fast)
-│   │
-│   └── runner/                            # Сквозной запуск ядра
-│       ├── prepare_runtime.py             # Сборка стейджинга рантайма
-│       ├── start_core.sh                  # Запуск языка сервера с I/O Bus
-│       ├── probe_server.py                # HTTP-зонд готовности
-│       ├── stop_core.sh                   # Graceful-остановка
-│       └── test_e2e.sh                    # Полный сквозной тест
-│
-├── app/                                   # Исходный код Android-приложения
-│   └── src/main/java/com/agy/
-│       ├── gateway/                       # Встроенный SystemGateway HTTP-сервер
-│       │   ├── SystemGatewayServer.java   # Микро-сервер (порты 45157 / 45158)
-│       │   ├── GatewayDispatcher.java     # Маршрутизатор REST-запросов
-│       │   └── handlers/                  # Модульные обработчики:
-│       │       ├── NotificationHandler.java (уведомления и прогресс-бары)
-│       │       ├── BrowserHandler.java      (Chrome Custom Tabs)
-│       │       ├── PowerHandler.java        (Partial WakeLocks)
-│       │       ├── ClipboardHandler.java    (буфер обмена в UI-потоке)
-│       │       ├── DeviceHandler.java       (вибрация, тосты, батарея)
-│       │       └── ExecHandler.java         (выполнение команд с аудитом)
-│       └── log/                           # Расширенное логирование и аудит команд
-│           ├── CommandRecord.java         # Модель записи ответа на команду
-│           ├── CommandHistory.java        # Потокобезопасный кольцевой буфер команд
-│           ├── LogRingBuffer.java         # Кольцевой буфер логов рантайма
-│           ├── CrashRecorder.java         # Аварийные дампы при падении
-│           └── LogRedactor.java           # Маскирование токенов и секретов
-│
-├── dist/                                  # Готовые собранные пакеты
-│   ├── agy.apk                            # Релизная сборка (com.agy, порт 45157)
-│   └── agy-dev.apk                        # Dev-сборка (com.agy.dev, порт 45158, debuggable)
-│
-├── test_all_modules.sh                    # Мастер-раннер тестов (100% покрытие)
-└── .gitignore                             # Исключения сборки и кэшей
-```
+  # Antigravity for Android
+
+  **Autonomous AI development environment running natively on Android & ARM64.**
+
+  [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://android.com)
+  [![Arch](https://img.shields.io/badge/ARM64-v8.0--A%2B-blue?style=flat-square)](https://arm.com)
+  [![Release](https://img.shields.io/badge/Version-2.4.0-blueviolet?style=flat-square)](https://github.com/werdio325-png/antigravity-android/releases)
+  [![License](https://img.shields.io/badge/License-Apache_2.0-orange?style=flat-square)](LICENSE)
+
+  <br/>
+
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/hero_light.png">
+    <img alt="Antigravity Interface" src="docs/assets/hero_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+
+</div>
 
 ---
 
-## 2. Сборка APK
+### Overview
 
-Конвейер сборки оптимизирован для максимальной скорости на ARM64 Android (чистый Java/Python/Bash):
+**Antigravity for Android** brings autonomous agentic coding directly to mobile hardware.
 
-### Релизная сборка (`com.agy`)
-```bash
-./modules/builder/build_apk.sh --fast
-```
-- Имя пакета: `com.agy`
-- Название в Android: `Antigravity`
-- Порт сервера: `45157`
-- Выходной файл: `dist/agy.apk`
-
-### Дев-сборка (`com.agy.dev`)
-```bash
-./modules/builder/build_apk.sh --dev --fast
-```
-- Имя пакета: `com.agy.dev` (полная изоляция от релиза, устанавливается параллельно)
-- Название в Android: `Antigravity Dev`
-- Режим: `debuggable=true`
-- Порт сервера: `45158`
-- Выходной файл: `dist/agy-dev.apk`
-
-> **Время сборки:** ~43 секунды благодаря кэшированию патченного ядра и инкрементальной упаковке.
+No PRoot, chroot, or virtualization overhead. Antigravity runs **bare-metal inside native Android userspace (Bionic)**, unleashing the full read/write speed of UFS storage and physical CPU cores. Driven by Gemini models, the agent inspects repositories, authors code across multiple files, compiles binaries, and runs tests completely on-device.
 
 ---
 
-## 3. Расширенное логирование и аудит ответов на команды
+### Highlights in v2.4
 
-Система предоставляет детальную телеметрию по каждой выполненной команде (время старта, длительность в миллисекундах, код возврата, stdout, stderr, вызывающий источник):
-
-### Запуск команд с телеметрией (`agy-cmd`)
-```bash
-# Выполнить команду и вывести структурированный блок ответа:
-agy-cmd "git status"
-agy-cmd "python3 -c 'print(42)'"
-
-# Посмотреть историю выполненных команд:
-agy-cmd list
-```
-
-Пример вывода:
-```
-┌── [COMMAND #cmd_1791997396_fb84] [2026-10-14 20:03:16] [source: user]
-│ $ uname -a && echo 'All tests OK'
-├── Status: SUCCESS | Exit: 0 | Duration: 17ms
-├── Output (2 lines):
-│   Linux localhost 6.1.138-android14-11-g151cf2b6bfbe-ab13719792 #1 SMP PREEMPT aarch64 Android
-│   All tests OK
-└──
-```
-
-### Просмотр логов и истории команд (`agy-logs`)
-```bash
-# История выполнения последних команд:
-agy-logs --commands
-# или коротко:
-agy-logs -c
-
-# Детальный просмотр stdout/stderr конкретной команды по её ID:
-agy-logs --cmd-id cmd_1791997396_fb84
-
-# Просмотр последних строк системного лога:
-agy-logs -n 50
-
-# Просмотр аварийных дампов (crash logs):
-agy-logs --crash
-```
+* **Modular Core:** Clean separation into 6 standalone subsystems (`modules/*`) with independent test suites.
+* **Native Splash:** Canvas-based dot animation saving ~40 MB RAM with instant startup.
+* **Desktop Mode:** Instant toggle in Appearance settings for tablets, external keyboards, and Samsung DeX.
+* **Universal ARMv8.0-A Support:** Built-in transparent atomic & SIMD emulation (`liblse_compat.so`) for older CPUs.
+* **Background Micro-Daemon:** Ultra-lightweight `agy-daemon` (<10 MB RAM) with cron scheduler, file watcher, and AI task queue.
 
 ---
 
-## 4. Управление системой через SystemGateway (`agy-system`)
+### Key Features
 
-Консольная утилита взаимодействия со встроенным HTTP-шлюзом `SystemGatewayServer`:
-
-```bash
-# Отправка нативного уведомления в шторку Android:
-agy-system notify "Antigravity" "Модульная сборка успешно завершена"
-
-# Открытие URL во вкладке Chrome Custom Tabs:
-agy-system url "https://github.com"
-
-# Запрос частичной блокировки сна (WakeLock):
-agy-system wakelock acquire 1800
-
-# Освобождение WakeLock:
-agy-system wakelock release
-
-# Работа с буфером обмена Android:
-agy-system clipboard set "Hello from Antigravity"
-agy-system clipboard get
-
-# Получение телеметрии устройства (батарея, память, SDK):
-agy-system info
-```
+* **Autonomous Agent:** Plans tasks, edits code across project trees, executes shell tools, and fixes build errors.
+* **Elevated Control (Shizuku):** Direct ADB-level operations (`uid=2000`) without root for package installs and system diagnostics.
+* **Built-in `pkg` Manager:** Fast package manager installing development runtimes (`git`, `python`, `node`, `clang`) from Termux repos.
+* **Adaptive Viewports:** Seamless touch-first mobile UI with optional desktop layout.
+* **In-Place Upgrades:** Consistent keystore guarantees updating APKs without losing sessions or workspace data.
 
 ---
 
-## 5. Тестирование
+### Showcase
 
-Проект включает 6 независимых тестовых сюит, покрывающих 100% кодовой базы:
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/workspace_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/workspace_light.png">
+    <img alt="Workspace" src="docs/assets/workspace_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings_desktop_mode_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/settings_desktop_mode_light.png">
+    <img alt="Desktop Mode" src="docs/assets/settings_desktop_mode_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+</p>
+<p align="center"><sub>Left: Mobile Workspace &bull; Right: Desktop Mode Appearance Toggle</sub></p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_exec_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_exec_light.png">
+    <img alt="Terminal Execution" src="docs/assets/demo_exec_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
+    <img alt="Benchmark" src="docs/assets/demo_benchmark_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+</p>
+<p align="center"><sub>Left: Agent Driving Shell Tools &bull; Right: Native UFS Storage Benchmark (>1200 MB/s)</sub></p>
+
+---
+
+### Quick Start
+
+1. **Download APK** from [Releases](https://github.com/werdio325-png/antigravity-android/releases):
+   * `agy.apk` — standard production release.
+   * `agy-dev.apk` — developer debug edition.
+2. **Grant Storage Permission** (`All Files Access`). *(Optional: enable Shizuku for ADB access)*.
+3. **Install Runtimes** via terminal or agent:
+   ```bash
+   pkg update && pkg install git python nodejs
+   ```
+
+---
+
+### Building & Testing
 
 ```bash
-# Запуск полного мастер-теста:
+# Build release APK (dist/agy.apk):
+bash build.sh
+
+# Build developer debug APK (dist/agy-dev.apk):
+bash build.sh --dev
+
+# Run all test suites:
 bash test_all_modules.sh
 ```
 
-Выборочный запуск тестов по компонентам:
-- **Ядро (Core):** `bash modules/core/tests/run_all.sh`
-- **Патчи (Patches):** `bash modules/patches/tests/run_all.sh`
-- **Шина I/O (I/O Bus):** `bash modules/io/tests/run_all.sh`
-- **Окружение и CLI (Env):** `bash modules/env/tests/run_all.sh`
-- **Сборщик APK (Builder):** `bash modules/builder/tests/run_all.sh`
-- **Сквозной серверный тест (E2E):** `bash modules/runner/test_e2e.sh`
+---
+
+### Repository Structure
+
+```text
+antigravity/
+├── config/             # App constants, environment paths, and AI rules
+├── modules/            # Decoupled core modules (v2.4+)
+│   ├── core/           # Binary unpacking, glibc loader, shims, SHA-256 manifest
+│   ├── patches/        # Binary patch engine (syscall emulation, resolv, SIGILL)
+│   ├── io/             # High-performance I/O Bus: event broker, FIFO pipes, sockets
+│   ├── env/            # Path resolver, diagnostics, Flight Recorder logs, CLI
+│   ├── builder/        # Gradle-free APK builder (javac, D8, aapt, zipalign, apksigner)
+│   └── runner/         # Standalone runtime preparation, port probe, E2E tests
+├── app/                # Android host app (native splash, WebView, system bridges)
+├── web/                # Local web frontend, desktop mode toggle, themes
+├── env/                # Bionic userspace, Termux overlay, pkg manager, liblse_compat
+├── docs/assets/        # Screenshots, banners, and diagrams
+├── build.sh            # Root APK build script
+└── test_all_modules.sh # Test suite for all 6 modules
+```
+
+> [!TIP]
+> Each module in `modules/`, `app/`, `web/`, and `env/` includes its own dedicated `README.md` with in-depth technical documentation.
+
+---
+
+<div align="center">
+  <sub>Licensed under the <a href="LICENSE">Apache 2.0 License</a></sub>
+</div>

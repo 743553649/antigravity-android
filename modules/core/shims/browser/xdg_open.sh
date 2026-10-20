@@ -5,8 +5,32 @@
 unset LD_PRELOAD
 unset LD_LIBRARY_PATH
 
-URL="$1"
-[ -z "$URL" ] && URL="$2"
+URL=""
+
+# 1. Search for first argument starting with http:// or https://
+for arg in "$@"; do
+  case "$arg" in
+    http://*|https://*)
+      URL="$arg"
+      break
+      ;;
+  esac
+done
+
+# 2. Fallback: search for first argument not starting with hyphen '-'
+if [ -z "$URL" ]; then
+  for arg in "$@"; do
+    case "$arg" in
+      -*|"")
+        ;;
+      *)
+        URL="$arg"
+        break
+        ;;
+    esac
+  done
+fi
+
 [ -z "$URL" ] && exit 0
 
 # Primary channel: output to stdout captured by CoreProcessSupervisor

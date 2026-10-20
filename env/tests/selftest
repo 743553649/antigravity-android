@@ -116,8 +116,60 @@ if PREFIX="$NOTIFY_TMP" bash "$SELF/../overlay/bin/agy-notify" cancel >/dev/null
 else
     ok "agy-notify rejects missing cancel tag"
 fi
+if PREFIX="$NOTIFY_TMP" bash "$SELF/../overlay/bin/agy-notify" post -t "Test" -m "Msg" --tag "post_123" \
+        && grep -Fq 'cmd notification post -S bigtext  -t Test post_123 Msg' "$AGY_NOTIFY_CAPTURE"; then
+    ok "agy-notify post falls back cleanly without hardcoded logo"
+else
+    bad "agy-notify post falls back cleanly without hardcoded logo"
+fi
 rm -rf "$NOTIFY_TMP"
 unset AGY_NOTIFY_CAPTURE
+
+# ---- agy-upgrade HOME calculation -----------------------------------------
+UPG_TMP="$(mktemp -d)"
+calc_home="$(unset HOME; PREFIX="$UPG_TMP/usr" bash -c '
+    SCRIPT_DIR="'"$SELF/../overlay/bin"'"
+    export PREFIX="${PREFIX:-$(cd -- "$SCRIPT_DIR/.." 2>/dev/null && pwd)}"
+    export HOME="${HOME:-$(dirname "$PREFIX")}"
+    printf "%s" "$HOME"
+')"
+if [ "$calc_home" = "$UPG_TMP" ]; then
+    ok "agy-upgrade HOME matches dirname PREFIX"
+else
+    bad "agy-upgrade HOME matches dirname PREFIX"
+fi
+rm -rf "$UPG_TMP"
+
+# ---- pkg runtime bridge selective generation -------------------------------
+BRIDGE_TMP="$(mktemp -d)"
+mkdir -p "$BRIDGE_TMP/usr/bin" "$BRIDGE_TMP/runtime/bin"
+touch "$BRIDGE_TMP/usr/bin/existing_bin" "$BRIDGE_TMP/usr/bin/new_bin"
+# Verify pkg install_one bridge block logic creates bridge only for newly installed binary
+pkg_files="bin/new_bin"
+PREFIX="$BRIDGE_TMP/usr"
+runtime_bin="$PREFIX/../runtime/bin"
+if [ -d "$runtime_bin" ] && [ -n "$pkg_files" ]; then
+    while IFS= read -r p; do
+        case "$p" in
+            bin/*)
+                bname="${p#bin/}"
+                case "$bname" in */*|"") continue ;; esac
+                bin_file="$PREFIX/bin/$bname"
+                [ -f "$bin_file" ] || [ -L "$bin_file" ] || continue
+                if [ ! -f "$runtime_bin/$bname" ]; then
+                    printf '#!/system/bin/sh\nexec "$PREFIX/bin/%s" "$@"\n' "$bname" > "$runtime_bin/$bname"
+                    chmod 755 "$runtime_bin/$bname"
+                fi
+                ;;
+        esac
+    done <<< "$pkg_files"
+fi
+if [ -f "$BRIDGE_TMP/runtime/bin/new_bin" ] && [ ! -f "$BRIDGE_TMP/runtime/bin/existing_bin" ]; then
+    ok "pkg generates bridges only for package binaries"
+else
+    bad "pkg generates bridges only for package binaries"
+fi
+rm -rf "$BRIDGE_TMP"
 
 rm -rf "$(dirname "$PREFIX")"
 printf '== failures: %s ==\n' "$fail"

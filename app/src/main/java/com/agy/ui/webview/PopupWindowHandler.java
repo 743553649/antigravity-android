@@ -29,7 +29,7 @@ public final class PopupWindowHandler {
     public boolean handle(WebView parent, boolean isDialog, boolean isUserGesture,
                           Message resultMsg) {
         Log.i(TAG, "onCreateWindow isDialog=" + isDialog + " isUserGesture=" + isUserGesture);
-        WebView popup = new WebView(context);
+        final WebView popup = new WebView(context);
         popup.getSettings().setJavaScriptEnabled(true);
         popup.setWebViewClient(new WebViewClient() {
             @Override
@@ -40,6 +40,10 @@ public final class PopupWindowHandler {
                         + SensitiveDataRedactor.safeUrl(url));
                 if (url != null && !url.isEmpty() && !url.equals("about:blank")) {
                     oauth.openInBrowser(context, url);
+                    try {
+                        popup.destroy();
+                    } catch (Exception ignored) {
+                    }
                     return true;
                 }
                 return false;
@@ -52,6 +56,10 @@ public final class PopupWindowHandler {
                         + SensitiveDataRedactor.safeUrl(url));
                 if (url != null && !url.isEmpty() && !url.equals("about:blank")) {
                     oauth.openInBrowser(context, url);
+                    try {
+                        popup.destroy();
+                    } catch (Exception ignored) {
+                    }
                     return true;
                 }
                 return false;
@@ -64,6 +72,10 @@ public final class PopupWindowHandler {
                             + SensitiveDataRedactor.safeUrl(url));
                     v.stopLoading();
                     oauth.openInBrowser(context, url);
+                    try {
+                        popup.destroy();
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         });

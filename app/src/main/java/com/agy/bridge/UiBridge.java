@@ -2,6 +2,8 @@ package com.agy.bridge;
 
 import android.util.Log;
 
+import java.lang.ref.WeakReference;
+
 import com.agy.ui.MainActivity;
 import com.agy.util.SensitiveDataRedactor;
 
@@ -13,15 +15,15 @@ public final class UiBridge {
 
     private static final String TAG = "AndroidBridge";
 
-    private volatile MainActivity activity;
+    private volatile WeakReference<MainActivity> activityRef;
 
     public void setActivity(MainActivity activity) {
-        this.activity = activity;
+        this.activityRef = activity != null ? new WeakReference<MainActivity>(activity) : null;
     }
 
     public void onUiReady() {
         Log.i(TAG, "onUiReady() received from JavaScript; posting dismissSplash");
-        final MainActivity host = this.activity;
+        final MainActivity host = this.activityRef != null ? this.activityRef.get() : null;
         if (host == null) {
             return;
         }
@@ -36,7 +38,7 @@ public final class UiBridge {
     public void onUiError(final String errorMessage) {
         final String safeError = SensitiveDataRedactor.redactLine(errorMessage);
         Log.e(TAG, "onUiError() received from JavaScript: " + safeError);
-        final MainActivity host = this.activity;
+        final MainActivity host = this.activityRef != null ? this.activityRef.get() : null;
         if (host == null) {
             return;
         }
@@ -49,12 +51,12 @@ public final class UiBridge {
     }
 
     public boolean isDesktopMode() {
-        final MainActivity host = this.activity;
+        final MainActivity host = this.activityRef != null ? this.activityRef.get() : null;
         return host != null ? host.isDesktopMode() : false;
     }
 
     public void setDesktopMode(final boolean enabled) {
-        final MainActivity host = this.activity;
+        final MainActivity host = this.activityRef != null ? this.activityRef.get() : null;
         if (host == null) {
             return;
         }

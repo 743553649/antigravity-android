@@ -1,14 +1,14 @@
 """
 resolv_redirect.py - Relative resolver path patch: /etc/resolv.conf -> etc//resolv.conf (length 16 in-place).
 """
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Union
 
 TARGET = b"/etc/resolv.conf"
 REPLACEMENT = b"etc//resolv.conf"
 ADJACENT_REJECT = b"/.\\"
 EXPECTED_COUNT = 2
 
-def scan(data: bytes) -> Tuple[List[int], List[int], List[int]]:
+def scan(data: Union[bytes, bytearray, memoryview]) -> Tuple[List[int], List[int], List[int]]:
     clean = []
     rejected = []
     pos = 0
@@ -34,7 +34,7 @@ def scan(data: bytes) -> Tuple[List[int], List[int], List[int]]:
     return clean, rejected, repl
 
 def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_missing: bool = False) -> Tuple[bool, Dict[str, Any]]:
-    clean, rejected, repl = scan(bytes(data))
+    clean, rejected, repl = scan(data)
     total = len(clean) + len(repl)
 
     info = {

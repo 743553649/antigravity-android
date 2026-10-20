@@ -21,7 +21,8 @@ def record_crash_snapshot(error_msg: str, dump_path: str, extra_context: Dict[st
         "extra_context": extra_context or {}
     }
     try:
-        snapshot["disk"] = shutil.disk_usage(os.getcwd())._asdict()
+        check_path = os.path.dirname(os.path.abspath(dump_path)) if dump_path else os.getcwd()
+        snapshot["disk"] = shutil.disk_usage(check_path)._asdict()
     except Exception:
         pass
 

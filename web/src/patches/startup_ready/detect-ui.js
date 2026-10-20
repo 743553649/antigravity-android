@@ -16,14 +16,8 @@ function isUiRendered() {
     // 2. Has the input area appeared?
     var hasInput = !!root.querySelector('textarea, [contenteditable="true"], [role="textbox"], button[type="submit"]');
     if (hasInput) {
-      if (!state.inputSeenAt) {
-        state.inputSeenAt = Date.now();
-      }
-      // If input area has been visible for > 1000ms and no conversation load was triggered, it's an empty new chat!
-      if (Date.now() - state.inputSeenAt > 1000) {
-        signal('new-chat-input-settled');
-        return true;
-      }
+      signal('chat-input-ready');
+      return true;
     }
 
     // 3. Has any auth, landing, onboarding or welcome content rendered?

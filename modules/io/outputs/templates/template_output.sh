@@ -10,8 +10,8 @@ read -r RAW_JSON || exit 0
 [ -z "$RAW_JSON" ] && exit 0
 
 # Step 1: Extract fields
-EVENT_NAME=$(echo "$RAW_JSON" | grep -o '"event":"[^"]*' | cut -d'"' -f4)
-SOURCE=$(echo "$RAW_JSON" | grep -o '"source":"[^"]*' | cut -d'"' -f4)
+EVENT_NAME=$(echo "$RAW_JSON" | grep -o '"event"[[:space:]]*:[[:space:]]*"[^"]*' | head -n 1 | cut -d'"' -f4)
+SOURCE=$(echo "$RAW_JSON" | grep -o '"source"[[:space:]]*:[[:space:]]*"[^"]*' | head -n 1 | cut -d'"' -f4)
 
 # Step 2: Handle event (example: custom logging or webhook delivery)
 echo "[CustomOutput] Dispatched event: $EVENT_NAME from $SOURCE"

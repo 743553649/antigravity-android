@@ -53,6 +53,7 @@ public final class ThemeController {
         // The bridge calls this on a WebView thread; window/bars must change on
         // the main thread. Apply right away so status/nav bars and the window
         // background track the Web UI without waiting for a resume.
+        LauncherIconSwitcher.scheduleSwitch(isDark());
         final Activity activity = currentContext instanceof Activity
                 ? (Activity) currentContext : null;
         if (activity != null) {
@@ -73,18 +74,18 @@ public final class ThemeController {
      */
     public boolean setThemeByUser(String theme) {
         boolean changed = setTheme(theme);
-        if (changed) {
-            LauncherIconSwitcher.scheduleSwitch(isLauncherDark());
-        }
+        LauncherIconSwitcher.scheduleSwitch(isDark());
         return changed;
     }
 
     /** Called when the Web UI paints a visual theme, without altering user mode preference. */
     public void onVisualThemeChanged(final String visual) {
+        final boolean dark = "dark".equalsIgnoreCase(visual);
+        setMode(dark ? ThemeColors.MODE_DARK : ThemeColors.MODE_LIGHT);
+        LauncherIconSwitcher.scheduleSwitch(dark);
         final Activity activity = currentContext instanceof Activity
                 ? (Activity) currentContext : null;
         if (activity != null) {
-            final boolean dark = "dark".equalsIgnoreCase(visual);
             MainThreadPost.post(new Runnable() {
                 @Override
                 public void run() {

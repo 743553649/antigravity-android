@@ -42,6 +42,18 @@ class TestCli(unittest.TestCase):
         res = subprocess.run([sys.executable, script, "--crash"], capture_output=True, text=True)
         self.assertEqual(res.returncode, 0)
 
+    def test_system_cli_clipboard_json(self):
+        script = os.path.join(CLI_DIR, "agy_system.py")
+        res = subprocess.run([sys.executable, script, "--json", "clipboard", "get"], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout)
+        self.assertIn("ok", data)
+
+    def test_logs_cli_commands(self):
+        script = os.path.join(CLI_DIR, "agy_logs.py")
+        res = subprocess.run([sys.executable, script, "--commands"], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

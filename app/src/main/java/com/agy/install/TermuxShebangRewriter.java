@@ -85,12 +85,9 @@ public final class TermuxShebangRewriter {
         if (firstLine.endsWith("\r")) {
             firstLine = firstLine.substring(0, firstLine.length() - 1);
         }
-        Matcher matcher = EnvPaths.TERMUX_SHEBANG.matcher(firstLine);
-        if (!matcher.matches()) {
-            return false;
-        }
-        String rewritten = "#!" + newPrefix + matcher.group(2);
-        if (rewritten.equals(firstLine)) {
+        boolean isTermux = EnvPaths.TERMUX_SHEBANG.matcher(firstLine).matches();
+        boolean isEnv = EnvPaths.ENV_SHEBANG.matcher(firstLine).matches();
+        if (!isTermux && !isEnv) {
             return false;
         }
         byte[] full;
@@ -100,11 +97,16 @@ public final class TermuxShebangRewriter {
             Log.w(TAG, "cannot read " + file + ": " + e);
             return false;
         }
-        // A few scripts carry a second termux shebang in their body (e.g. gzexe
-        // line 147), so rewrite every matching line, not only the first.
         String content = new String(full, StandardCharsets.ISO_8859_1);
-        String replaced = EnvPaths.TERMUX_SHEBANG_LINES.matcher(content)
-                .replaceAll("#!" + Matcher.quoteReplacement(newPrefix) + "$2");
+        String replaced = content;
+        if (isTermux) {
+            replaced = EnvPaths.TERMUX_SHEBANG_LINES.matcher(replaced)
+                    .replaceAll("#!" + Matcher.quoteReplacement(newPrefix) + "$2");
+        }
+        if (isEnv || EnvPaths.ENV_SHEBANG_LINES.matcher(replaced).find()) {
+            replaced = EnvPaths.ENV_SHEBANG_LINES.matcher(replaced)
+                    .replaceAll("#!" + Matcher.quoteReplacement(newPrefix) + "/bin/$1$2");
+        }
         if (replaced.equals(content)) {
             return false;
         }

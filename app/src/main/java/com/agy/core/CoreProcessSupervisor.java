@@ -217,8 +217,16 @@ public final class CoreProcessSupervisor {
 
     private static void destroy(Process proc) {
         if (proc != null) {
-            proc.destroy();
+            try {
+                proc.destroy();
+            } catch (Exception ignored) {
+            }
+            try {
+                proc.destroyForcibly();
+            } catch (Exception ignored) {
+            }
         }
+        CoreLauncher.killOrphanCoreProcesses();
     }
 
     private static String getLastLinesFromLog(java.io.File filesDir, int maxLines) {

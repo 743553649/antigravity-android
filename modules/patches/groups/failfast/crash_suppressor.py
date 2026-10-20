@@ -1,15 +1,15 @@
 """
 crash_suppressor.py - Bypasses preinit CPU feature check and preinit atomic flag initialization for ARMv8.0-A CPUs.
 """
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Union
 
-TARGET_CPU = bytes.fromhex("13f100b00a609052689e42f9e903282a3f010aeae1020054e8033836e8045036")
+TARGET_CPU = bytes.fromhex("d3f800900a60905268de41f9e903282a3f010aeae1020054e8033836e8045036")
 REPLACEMENT_CPU = bytes.fromhex("190000141f2003d51f2003d51f2003d51f2003d51f2003d51f2003d51f2003d5")
 
-TARGET_ATOMIC = bytes.fromhex("c8ed00f008a13b91290080520801e9f8480000b4c0035fd61f2003d5")
-REPLACEMENT_ATOMIC = bytes.fromhex("c8ed00f008a13b91090140f92a008052490000b4c0035fd60a0100f9")
+TARGET_ATOMIC = bytes.fromhex("88f500f008a13591290080520801e9f8480000b4c0035fd61f2003d5")
+REPLACEMENT_ATOMIC = bytes.fromhex("88f500f008a13591090140f92a008052490000b4c0035fd60a0100f9")
 
-def find_all(data: bytes, pattern: bytes) -> List[int]:
+def find_all(data: Union[bytes, bytearray, memoryview], pattern: bytes) -> List[int]:
     matches = []
     pos = 0
     while True:
@@ -21,10 +21,10 @@ def find_all(data: bytes, pattern: bytes) -> List[int]:
     return matches
 
 def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_missing: bool = False) -> Tuple[bool, Dict[str, Any]]:
-    raw_cpu = find_all(bytes(data), TARGET_CPU)
-    repl_cpu = find_all(bytes(data), REPLACEMENT_CPU)
-    raw_atomic = find_all(bytes(data), TARGET_ATOMIC)
-    repl_atomic = find_all(bytes(data), REPLACEMENT_ATOMIC)
+    raw_cpu = find_all(data, TARGET_CPU)
+    repl_cpu = find_all(data, REPLACEMENT_CPU)
+    raw_atomic = find_all(data, TARGET_ATOMIC)
+    repl_atomic = find_all(data, REPLACEMENT_ATOMIC)
 
     info = {
         "name": "failfast_cpu_and_atomic",
@@ -38,7 +38,7 @@ def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_mi
     atomic_total = len(raw_atomic) + len(repl_atomic)
 
     if (cpu_total == 0 or atomic_total == 0):
-        if allow_missing or (cpu_total == 0 and atomic_total == 0):
+        if allow_missing:
             info["status"] = "skipped_missing"
             return True, info
         info["status"] = "missing_signature"

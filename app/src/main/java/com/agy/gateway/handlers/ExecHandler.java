@@ -69,7 +69,7 @@ public final class ExecHandler {
         try {
             ProcessBuilder pb;
             if (useRish) {
-                pb = new ProcessBuilder("rish", "-c", cmd);
+                pb = new ProcessBuilder(resolveRishPath(), "-c", cmd);
             } else {
                 pb = new ProcessBuilder("/system/bin/sh", "-c", cmd);
             }
@@ -82,6 +82,8 @@ public final class ExecHandler {
             String home = context.getFilesDir().getAbsolutePath();
             pb.environment().put("HOME", home);
             pb.environment().put("PATH", home + "/usr/bin:" + home + "/runtime/bin:/system/bin:" + System.getenv("PATH"));
+            pb.environment().put("RISH_APPLICATION_ID", context.getPackageName());
+            pb.environment().remove("LD_LIBRARY_PATH");
 
             Process proc = pb.start();
 
@@ -145,5 +147,25 @@ public final class ExecHandler {
                 out.append(line);
             }
         } catch (Exception ignored) {}
+    }
+
+    private String resolveRishPath() {
+        File files = context.getFilesDir();
+        File[] candidates = new File[]{
+                new File(files, "usr/bin/rish"),
+                new File(files, "runtime/bin/rish"),
+                new File(files, "bin/rish")
+        };
+        for (File candidate : candidates) {
+            if (candidate.exists() && candidate.canExecute()) {
+                return candidate.getAbsolutePath();
+            }
+        }
+        for (File candidate : candidates) {
+            if (candidate.exists()) {
+                return candidate.getAbsolutePath();
+            }
+        }
+        return new File(files, "usr/bin/rish").getAbsolutePath();
     }
 }

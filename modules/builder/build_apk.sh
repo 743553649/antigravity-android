@@ -55,9 +55,9 @@ done
 
 # Clean previous build artifacts
 echo "[*] Cleaning build directories..."
-rm -rf "$BUILD_DIR/gen" "$BUILD_DIR/obj" "$BUILD_DIR/dex" "$BUILD_DIR/staging" \
+rm -rf "$BUILD_DIR/gen" "$BUILD_DIR/res" "$BUILD_DIR/obj" "$BUILD_DIR/dex" "$BUILD_DIR/staging" \
        "$BUILD_DIR/unaligned.apk" "$BUILD_DIR/aligned.apk"
-mkdir -p "$BUILD_DIR/gen" "$BUILD_DIR/obj" "$BUILD_DIR/dex" "$BUILD_DIR/staging" "$DIST_DIR"
+mkdir -p "$BUILD_DIR/gen" "$BUILD_DIR/res" "$BUILD_DIR/obj" "$BUILD_DIR/dex" "$BUILD_DIR/staging" "$DIST_DIR"
 
 # Phase 01: Config Generation (creates BuildConfig.java, gen.xml, and build/AndroidManifest.xml)
 echo -e "\n>>> [1/8] Generating Configs..."
@@ -67,7 +67,7 @@ TARGET_MANIFEST="$BUILD_DIR/AndroidManifest.xml"
 
 # Phase 02: Generate R.java
 echo -e "\n>>> [2/8] Generating R.java..."
-bash "$SCRIPT_DIR/02_r_java.sh" "$BUILD_DIR/gen" "$TARGET_MANIFEST" "$APP_DIR/src/main/res" "$TOOLS_DIR/android.jar"
+bash "$SCRIPT_DIR/02_r_java.sh" "$BUILD_DIR/gen" "$TARGET_MANIFEST" "$APP_DIR/src/main/res" "$TOOLS_DIR/android.jar" "$BUILD_DIR/res"
 
 # Phase 03: Compile Java Sources
 echo -e "\n>>> [3/8] Compiling Java Sources..."
@@ -83,7 +83,7 @@ python3 "$SCRIPT_DIR/05_stage_assets.py" "$BUILD_DIR/staging"
 
 # Phase 06: Package Unaligned APK
 echo -e "\n>>> [6/8] Packaging Unaligned APK..."
-bash "$SCRIPT_DIR/06_package.sh" "$BUILD_DIR/unaligned.apk" "$TARGET_MANIFEST" "$APP_DIR/src/main/res" "$TOOLS_DIR/android.jar" "$BUILD_DIR/staging/assets" "$BUILD_DIR/dex/classes.dex"
+bash "$SCRIPT_DIR/06_package.sh" "$BUILD_DIR/unaligned.apk" "$TARGET_MANIFEST" "$APP_DIR/src/main/res" "$TOOLS_DIR/android.jar" "$BUILD_DIR/staging/assets" "$BUILD_DIR/dex/classes.dex" "$BUILD_DIR/res"
 
 # Phase 07: ZipAlign
 echo -e "\n>>> [7/8] ZipAligning APK..."

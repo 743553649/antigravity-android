@@ -2,7 +2,7 @@
 pclntab_scanner.py - Resolves Go runtime functions via pclntab and encodes AArch64 MOVZ instructions.
 """
 import struct
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, Union
 
 PCLN_MAGICS = (b"\xf1\xff\xff\xff", b"\xf2\xff\xff\xff", b"\xf0\xff\xff\xff")
 
@@ -10,7 +10,7 @@ def encode_movz_x0(imm: int) -> bytes:
     """Encode AArch64 MOVZ X0, #imm"""
     return struct.pack("<I", 0xD2800000 | (imm << 5) | 0)
 
-def find_pclntab(data: bytes, base: int, region_end: int) -> Optional[Dict[str, Any]]:
+def find_pclntab(data: Union[bytes, bytearray, memoryview], base: int, region_end: int) -> Optional[Dict[str, Any]]:
     for magic in PCLN_MAGICS:
         pos = base
         while True:
@@ -44,30 +44,47 @@ def find_pclntab(data: bytes, base: int, region_end: int) -> Optional[Dict[str, 
             pos += 4
     return None
 
-def find_function(data: bytes, pcln: Dict[str, Any], func_name: str) -> Optional[Tuple[int, int]]:
+def find_function(data: Union[bytes, bytearray, memoryview], pcln: Dict[str, Any], func_name: str) -> Optional[Tuple[int, int]]:
+    cache = pcln.setdefault("_cache", {})
+    if func_name in cache:
+        return cache[func_name]
+
     ft = pcln["pcln_base"] + pcln["funcname_off"]
     pt = pcln["pcln_base"] + pcln["pcln_off"]
     nfunc = pcln["nfunc"]
+
+    target_bytes = func_name.encode("utf-8") + b"\x00"
+    name_offsets = set()
+    pos = ft
+    limit = pt if pt > ft else len(data)
+
+    while True:
+        pos = data.find(target_bytes, pos, limit)
+        if pos == -1:
+            break
+        if pos == ft or data[pos - 1] == 0:
+            name_offsets.add(pos - ft)
+        pos += 1
+
+    if not name_offsets:
+        cache[func_name] = None
+        return None
+
     for i in range(nfunc):
         entry_off, func_off = struct.unpack_from("<II", data, pt + i * 8)
         try:
             _entry, name_off = struct.unpack_from("<Ii", data, pt + func_off)
         except struct.error:
             continue
-        if name_off < 0:
-            continue
-        start = ft + name_off
-        if start >= len(data):
-            continue
-        end = data.find(b"\x00", start)
-        if end == -1:
-            continue
-        if data[start:end].decode("latin1", "ignore") != func_name:
-            continue
-        if i + 1 < nfunc:
-            next_entry = struct.unpack_from("<II", data, pt + (i + 1) * 8)[0]
-            size = next_entry - entry_off
-        else:
-            size = 0
-        return entry_off, size
+        if name_off in name_offsets:
+            if i + 1 < nfunc:
+                next_entry = struct.unpack_from("<II", data, pt + (i + 1) * 8)[0]
+                size = next_entry - entry_off
+            else:
+                size = 0
+            res = (entry_off, size)
+            cache[func_name] = res
+            return res
+
+    cache[func_name] = None
     return None

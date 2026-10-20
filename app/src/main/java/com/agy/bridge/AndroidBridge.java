@@ -8,6 +8,7 @@ import com.agy.shell.ShizukuBridge;
 import com.agy.theme.ThemeManager;
 import com.agy.ui.MainActivity;
 
+import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -24,6 +25,7 @@ public final class AndroidBridge {
     private final EngineBridge engine;
     private final EngineConfigJson config;
     private final String blobBridgeToken = createBlobBridgeToken();
+    private volatile WeakReference<MainActivity> activityRef;
 
     public AndroidBridge(Context context, RuntimeManager runtime,
                          ShizukuBridge shizuku, ThemeManager theme) {
@@ -35,6 +37,7 @@ public final class AndroidBridge {
 
     /** Host activity, used to dismiss the native splash once the UI has painted. */
     public void setActivity(MainActivity activity) {
+        this.activityRef = activity != null ? new WeakReference<MainActivity>(activity) : null;
         ui.setActivity(activity);
     }
 
@@ -42,6 +45,19 @@ public final class AndroidBridge {
     public void onUiReady(String token) {
         if (matchesNativeBridgeToken(token)) {
             ui.onUiReady();
+        }
+    }
+
+    @JavascriptInterface
+    public void openDirectoryPicker() {
+        final MainActivity act = activityRef != null ? activityRef.get() : MainActivity.activeActivity;
+        if (act != null) {
+            act.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    act.launchDirectoryPicker();
+                }
+            });
         }
     }
 
@@ -114,9 +130,10 @@ public final class AndroidBridge {
         if (!matchesNativeBridgeToken(token)) {
             return;
         }
-        if (MainActivity.activeActivity != null) {
+        final MainActivity act = activityRef != null ? activityRef.get() : MainActivity.activeActivity;
+        if (act != null) {
             com.agy.ui.download.FileDownloader.handleBlobData(
-                    MainActivity.activeActivity, base64Data, filename, mimeType);
+                    act, base64Data, filename, mimeType);
         }
     }
 

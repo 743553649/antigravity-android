@@ -52,5 +52,34 @@ class TestStreamSplitter(unittest.TestCase):
         self.assertEqual(events[0]["event"], "system.error")
         self.assertIn("panic", events[0]["data"]["message"])
 
+    def test_03_async_publishing_queue(self):
+        import time
+        broker = EventBroker()
+        events = []
+
+        def slow_handler(ev):
+            time.sleep(0.05)
+            events.append(ev)
+
+        broker.register_handler("agent.*", slow_handler)
+
+        raw_stream = io.StringIO(
+            "line 1\n"
+            "[task:start] 123 Initializing task\n"
+            "line 2\n"
+            "[task:done] 123 Task complete\n"
+            "line 3\n"
+        )
+        out_stream = io.StringIO()
+
+        start_t = time.time()
+        lines, emitted = stream_splitter.process_stream(raw_stream, out_stream, broker)
+        elapsed = time.time() - start_t
+
+        self.assertEqual(lines, 5)
+        self.assertEqual(emitted, 2)
+        self.assertEqual(len(events), 2)
+        self.assertEqual(out_stream.getvalue(), raw_stream.getvalue())
+
 if __name__ == "__main__":
     unittest.main()

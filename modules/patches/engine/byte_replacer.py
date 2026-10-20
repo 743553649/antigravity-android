@@ -1,10 +1,10 @@
 """
 byte_replacer.py - Safe byte pattern matching and replacement engine.
 """
-from typing import List, Tuple, Pattern
+from typing import List, Tuple, Pattern, Union
 import re
 
-def find_offsets(data: bytes, pattern: bytes) -> List[int]:
+def find_offsets(data: Union[bytes, bytearray, memoryview], pattern: bytes) -> List[int]:
     offsets = []
     start = 0
     while True:

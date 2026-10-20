@@ -8,6 +8,7 @@ import os
 from typing import Dict, Any
 
 COLORS = {
+    "DEBUG": "\033[0;90m",
     "INFO": "\033[0;34m",
     "OK": "\033[0;32m",
     "WARN": "\033[0;33m",
@@ -17,10 +18,12 @@ COLORS = {
 
 def log(level: str, tag: str, message: str, meta: Dict[str, Any] = None, jsonl_file: str = None) -> None:
     now = time.strftime("%H:%M:%S")
-    color = COLORS.get(level.upper(), "")
-    reset = COLORS["RESET"]
+    no_color = os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb"
+    color = "" if no_color else COLORS.get(level.upper(), "")
+    reset = "" if no_color else COLORS["RESET"]
 
-    print(f"{color}[{now}] [{level.upper()}] [{tag}]{reset} {message}")
+    out = sys.stderr if level.upper() == "ERROR" else sys.stdout
+    print(f"{color}[{now}] [{level.upper()}] [{tag}]{reset} {message}", file=out)
 
     if jsonl_file:
         record = {
@@ -30,6 +33,9 @@ def log(level: str, tag: str, message: str, meta: Dict[str, Any] = None, jsonl_f
             "msg": message,
             "meta": meta or {}
         }
-        os.makedirs(os.path.dirname(os.path.abspath(jsonl_file)), exist_ok=True)
-        with open(jsonl_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(jsonl_file)), exist_ok=True)
+            with open(jsonl_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception:
+            pass

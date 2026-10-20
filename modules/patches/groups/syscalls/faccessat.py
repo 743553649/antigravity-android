@@ -30,7 +30,7 @@ def patch_in_body(body: bytes) -> Tuple[str, int, int, int]:
     return "ambiguous", -1, c_old, c_new
 
 def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_missing: bool = False) -> Tuple[bool, Dict[str, Any]]:
-    bases = elf_scanner.find_elf_headers(bytes(data))
+    bases = elf_scanner.find_elf_headers(data)
     if not bases:
         return False, {"name": "faccessat", "error": "no_elf_found"}
 
@@ -39,15 +39,15 @@ def apply(data: bytearray, verify: bool = False, dry_run: bool = False, allow_mi
 
     for idx, base in enumerate(bases):
         region_end = bases[idx + 1] if idx + 1 < len(bases) else len(data)
-        text = elf_scanner.get_text_section(bytes(data), base)
+        text = elf_scanner.get_text_section(data, base)
         if text is None:
             continue
         text_off, _ = text
-        pcln = pclntab_scanner.find_pclntab(bytes(data), base, region_end)
+        pcln = pclntab_scanner.find_pclntab(data, base, region_end)
         if pcln is None:
             continue
 
-        found = pclntab_scanner.find_function(bytes(data), pcln, FUNC_NAME)
+        found = pclntab_scanner.find_function(data, pcln, FUNC_NAME)
         if found is None:
             if base == 0 and not allow_missing:
                 ok = False

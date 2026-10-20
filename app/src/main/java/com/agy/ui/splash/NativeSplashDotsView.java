@@ -1,33 +1,35 @@
 package com.agy.ui.splash;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
+import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 
+import com.agy.R;
+
 /**
- * Lightweight native Android View animating three bouncing dots.
- * Replaces heavy Chromium WebView instance saving ~40 MB RAM.
- * Matches authentic Antigravity dot bounce: 3 dots, vertical bounce, 1.6s duration.
+ * Clean, lightweight native splash loading view.
+ * Displays a smooth pulsing gray Antigravity logo with seamless entrance fade.
  */
 public class NativeSplashDotsView extends View {
 
-    private static final int DOT_COUNT = 3;
-    private static final long DURATION_MS = 1600;
+    private final Paint logoPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private ValueAnimator pulseAnimator;
+    private ValueAnimator entranceAnimator;
 
-    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final float[] dotOffsets = new float[DOT_COUNT];
-    private ValueAnimator animator;
-
-    private float dotRadiusPx;
-    private float dotGapPx;
-    private float bounceDistancePx;
+    private float logoSizePx;
+    private Bitmap logoBitmap;
+    private float entranceAlpha = 0f;
+    private float pulseAlpha = 1f;
+    private boolean isDark = true;
 
     public NativeSplashDotsView(Context context) {
         super(context);
@@ -46,58 +48,76 @@ public class NativeSplashDotsView extends View {
 
     private void init() {
         float density = getResources().getDisplayMetrics().density;
-        // Standard dot dimensions: diameter ~4dp (radius 2dp), gap ~3dp, bounce distance ~4dp
-        dotRadiusPx = 2.0f * density;
-        dotGapPx = 3.0f * density;
-        bounceDistancePx = 4.0f * density;
+        logoSizePx = 56.0f * density;
 
-        paint.setStyle(Paint.Style.FILL);
-        paint.setColor(Color.WHITE);
-        paint.setAlpha(128); // ~0.5 opacity as in web version
+        updateTint();
+
+        try {
+            logoBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.splash_logo);
+        } catch (Throwable ignored) {
+        }
     }
 
     public void setDotColor(int color) {
-        paint.setColor(color);
-        paint.setAlpha(128);
+        // Adapt dark/light mode from theme color
+        isDark = (color == android.graphics.Color.WHITE);
+        updateTint();
         invalidate();
     }
 
+    public void setDark(boolean dark) {
+        isDark = dark;
+        updateTint();
+        invalidate();
+    }
+
+    private void updateTint() {
+        // Material neutral gray: #9AA0A6 for dark mode, #5F6368 for light mode
+        int gray = isDark ? 0xFF9AA0A6 : 0xFF5F6368;
+        logoPaint.setColorFilter(new PorterDuffColorFilter(gray, PorterDuff.Mode.SRC_IN));
+    }
+
     public void startAnimation() {
-        if (animator != null && animator.isRunning()) {
-            return;
-        }
-        animator = ValueAnimator.ofFloat(0f, 1f);
-        animator.setDuration(DURATION_MS);
-        animator.setRepeatCount(ValueAnimator.INFINITE);
-        animator.setInterpolator(new AccelerateDecelerateInterpolator());
-        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+        stopAnimation();
+
+        // 1. Smooth entrance fade-in
+        entranceAnimator = ValueAnimator.ofFloat(0f, 1f);
+        entranceAnimator.setDuration(600);
+        entranceAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        entranceAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
-                float fraction = animation.getAnimatedFraction();
-                for (int i = 0; i < DOT_COUNT; i++) {
-                    // Delays: 0ms, 120ms, 240ms relative to 1600ms total
-                    float delayFraction = (i * 120f) / DURATION_MS;
-                    float dotProgress = (fraction - delayFraction + 1f) % 1f;
-                    // Bounce happens in the first 30% of cycle (peak at 15%)
-                    if (dotProgress <= 0.30f) {
-                        float sub = dotProgress / 0.30f; // 0 to 1
-                        // Peak bounce at sub = 0.5
-                        float factor = (float) Math.sin(sub * Math.PI);
-                        dotOffsets[i] = -bounceDistancePx * factor;
-                    } else {
-                        dotOffsets[i] = 0f;
-                    }
-                }
+                entranceAlpha = (float) animation.getAnimatedValue();
                 invalidate();
             }
         });
-        animator.start();
+
+        // 2. Slow, gentle continuous breathing animation (2400ms per phase)
+        pulseAnimator = ValueAnimator.ofFloat(0.25f, 0.90f);
+        pulseAnimator.setDuration(2400);
+        pulseAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        pulseAnimator.setRepeatMode(ValueAnimator.REVERSE);
+        pulseAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        pulseAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                pulseAlpha = (float) animation.getAnimatedValue();
+                invalidate();
+            }
+        });
+
+        entranceAnimator.start();
+        pulseAnimator.start();
     }
 
     public void stopAnimation() {
-        if (animator != null) {
-            animator.cancel();
-            animator = null;
+        if (entranceAnimator != null) {
+            entranceAnimator.cancel();
+            entranceAnimator = null;
+        }
+        if (pulseAnimator != null) {
+            pulseAnimator.cancel();
+            pulseAnimator = null;
         }
     }
 
@@ -127,25 +147,30 @@ public class NativeSplashDotsView extends View {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        float totalWidth = (DOT_COUNT * dotRadiusPx * 2) + ((DOT_COUNT - 1) * dotGapPx) + getPaddingLeft() + getPaddingRight();
-        float totalHeight = (dotRadiusPx * 2) + (bounceDistancePx * 2) + getPaddingTop() + getPaddingBottom();
+        float totalSize = logoSizePx + getPaddingLeft() + getPaddingRight();
         setMeasuredDimension(
-                resolveSize((int) Math.ceil(totalWidth), widthMeasureSpec),
-                resolveSize((int) Math.ceil(totalHeight), heightMeasureSpec)
+                resolveSize((int) Math.ceil(totalSize), widthMeasureSpec),
+                resolveSize((int) Math.ceil(totalSize), heightMeasureSpec)
         );
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        float totalDotsWidth = (DOT_COUNT * dotRadiusPx * 2) + ((DOT_COUNT - 1) * dotGapPx);
-        float startX = (getWidth() - totalDotsWidth) / 2f + dotRadiusPx;
+        if (logoBitmap == null || logoBitmap.isRecycled()) {
+            return;
+        }
+
+        float centerX = getWidth() / 2f;
         float centerY = getHeight() / 2f;
 
-        for (int i = 0; i < DOT_COUNT; i++) {
-            float cx = startX + i * (dotRadiusPx * 2 + dotGapPx);
-            float cy = centerY + dotOffsets[i];
-            canvas.drawCircle(cx, cy, dotRadiusPx, paint);
-        }
+        float logoLeft = centerX - (logoSizePx / 2f);
+        float logoTop = centerY - (logoSizePx / 2f);
+        RectF destRect = new RectF(logoLeft, logoTop, logoLeft + logoSizePx, logoTop + logoSizePx);
+
+        float currentAlpha = Math.max(0f, Math.min(1f, entranceAlpha * pulseAlpha));
+        logoPaint.setAlpha(Math.round(255 * currentAlpha));
+
+        canvas.drawBitmap(logoBitmap, null, destRect, logoPaint);
     }
 }

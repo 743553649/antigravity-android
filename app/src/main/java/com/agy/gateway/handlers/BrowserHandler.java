@@ -29,18 +29,8 @@ public final class BrowserHandler {
                 return resp;
             }
 
-            Uri uri = Uri.parse(url);
-            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-            // Add Custom Tabs header support if requested
-            if (payload.optBoolean("custom_tab", true)) {
-                // Intent extra recognized by Chrome and Custom Tabs browsers
-                intent.putExtra("android.support.customtabs.extra.TITLE_VISIBILITY", 1);
-            }
-
-            context.startActivity(intent);
-            resp.put("ok", true);
+            boolean ok = com.agy.util.UriDispatcher.open(context, url);
+            resp.put("ok", ok);
             resp.put("url", url);
         } catch (Exception e) {
             Log.w(TAG, "failed to open url: " + e.getMessage());

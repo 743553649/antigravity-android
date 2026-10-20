@@ -10,13 +10,34 @@ import urllib.request
 import urllib.error
 from datetime import datetime
 
+# Ensure modules/env is in sys.path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODULES_ENV_DIR = os.path.dirname(SCRIPT_DIR)
+if MODULES_ENV_DIR not in sys.path:
+    sys.path.insert(0, MODULES_ENV_DIR)
+
+try:
+    from bridge.client import resolve_gateway_url
+except ImportError:
+    try:
+        from modules.env.bridge.client import resolve_gateway_url
+    except ImportError:
+        resolve_gateway_url = None
+
 def get_gateway_base():
+    if resolve_gateway_url:
+        return resolve_gateway_url().rstrip("/")
     if "AGY_GATEWAY_URL" in os.environ:
         return os.environ["AGY_GATEWAY_URL"].rstrip("/")
-    for pfile in [
+    home = os.environ.get("HOME")
+    candidates = []
+    if home:
+        candidates.append(os.path.join(home, "logs", "gateway.port"))
+    candidates.extend([
         "/data/user/0/com.agy.dev/files/logs/gateway.port",
         "/data/user/0/com.agy/files/logs/gateway.port"
-    ]:
+    ])
+    for pfile in candidates:
         if os.path.isfile(pfile):
             try:
                 with open(pfile, "r") as f:
@@ -25,7 +46,8 @@ def get_gateway_base():
                         return f"http://127.0.0.1:{p}/gateway"
             except Exception:
                 pass
-    return "http://127.0.0.1:45161/gateway" if os.environ.get("DEV_MODE") == "1" else "http://127.0.0.1:45160/gateway"
+    is_dev = os.environ.get("DEV_MODE") == "1" or os.environ.get("AGY_APPLICATION_ID") == "com.agy.dev"
+    return "http://127.0.0.1:45161/gateway" if is_dev else "http://127.0.0.1:45160/gateway"
 
 GATEWAY_BASE = get_gateway_base()
 GATEWAY_LOGS_URL = f"{GATEWAY_BASE}/logs"
@@ -51,12 +73,47 @@ def fetch_from_gateway(url):
         return None
 
 
+def _find_commands_log():
+    candidates = []
+    home = os.environ.get("HOME")
+    if home:
+        candidates.append(os.path.join(home, "logs", "commands.jsonl"))
+    try:
+        from context import path_resolver
+        app_root = path_resolver.load_paths().get("app_root")
+        if app_root:
+            candidates.append(os.path.join(app_root, "logs", "commands.jsonl"))
+    except Exception:
+        pass
+    candidates.extend([
+        "/data/user/0/com.agy.dev/files/logs/commands.jsonl",
+        "/data/user/0/com.agy/files/logs/commands.jsonl"
+    ])
+    for p in candidates:
+        if os.path.isfile(p):
+            return p
+    return candidates[0] if candidates else "/data/user/0/com.agy/files/logs/commands.jsonl"
+
+
 def read_file_fallback(max_lines=50):
-    candidates = [
+    candidates = []
+    home = os.environ.get("HOME")
+    if home:
+        candidates.append(os.path.join(home, "logs", "core.log"))
+        candidates.append(os.path.join(home, ".gemini", "logs", "core.log"))
+    try:
+        from context import path_resolver
+        app_root = path_resolver.load_paths().get("app_root")
+        if app_root:
+            candidates.append(os.path.join(app_root, "logs", "core.log"))
+    except Exception:
+        pass
+    candidates.extend([
         os.path.expanduser("~/.gemini/logs/core.log"),
+        "/data/user/0/com.agy.dev/files/logs/core.log",
         "/data/user/0/com.agy/files/logs/core.log",
         "/data/user/0/com.agy/files/standalone_runtime/core_output.log"
-    ]
+    ])
     for path in candidates:
         if os.path.isfile(path):
             with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -93,12 +150,31 @@ def show_crash(as_json=False):
 
     if not crash or crash == "null":
         # Search crashes directory
-        crashes_dir = "/data/user/0/com.agy/files/logs/crashes"
-        if os.path.isdir(crashes_dir):
-            files = sorted(os.listdir(crashes_dir), reverse=True)
-            if files:
-                with open(os.path.join(crashes_dir, files[0]), "r") as f:
-                    crash = json.load(f)
+        crashes_dirs = []
+        home = os.environ.get("HOME")
+        if home:
+            crashes_dirs.append(os.path.join(home, "logs", "crashes"))
+        try:
+            from context import path_resolver
+            app_root = path_resolver.load_paths().get("app_root")
+            if app_root:
+                crashes_dirs.append(os.path.join(app_root, "logs", "crashes"))
+        except Exception:
+            pass
+        crashes_dirs.extend([
+            "/data/user/0/com.agy.dev/files/logs/crashes",
+            "/data/user/0/com.agy/files/logs/crashes"
+        ])
+        for crashes_dir in crashes_dirs:
+            if os.path.isdir(crashes_dir):
+                files = sorted(os.listdir(crashes_dir), reverse=True)
+                if files:
+                    try:
+                        with open(os.path.join(crashes_dir, files[0]), "r") as f:
+                            crash = json.load(f)
+                        break
+                    except Exception:
+                        pass
 
     if not crash:
         print("[OK] No crash reports recorded. Runtime is healthy!")
@@ -134,7 +210,7 @@ def show_commands(limit=20, as_json=False):
 
     if not commands:
         # Fallback to local commands.jsonl
-        log_file = "/data/user/0/com.agy/files/logs/commands.jsonl"
+        log_file = _find_commands_log()
         if os.path.isfile(log_file):
             commands = []
             try:
@@ -174,7 +250,7 @@ def show_commands(limit=20, as_json=False):
 
 
 def show_command_detail(cmd_id, as_json=False):
-    log_file = "/data/user/0/com.agy/files/logs/commands.jsonl"
+    log_file = _find_commands_log()
     record = None
     if os.path.isfile(log_file):
         with open(log_file, "r", encoding="utf-8", errors="replace") as f:

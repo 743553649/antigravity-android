@@ -81,6 +81,11 @@ public final class AgyWebViewClient extends WebViewClient {
             if (!TrustedCoreOrigin.matches(uri, bridge.getEnginePort())) {
                 String scheme = uri.getScheme();
                 if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
+                    // Do not open internal backend API endpoints in external browser
+                    if (url.contains("googleapis.com/oauth2/v2/userinfo")
+                            || url.contains("googleapis.com/auth")) {
+                        return true;
+                    }
                     Log.i(TAG, "non-core navigation -> external browser: "
                             + SensitiveDataRedactor.safeUrl(url));
                     oauth.openInBrowser(context, url);
@@ -113,7 +118,10 @@ public final class AgyWebViewClient extends WebViewClient {
                 v.stopLoading();
                 String scheme = uri.getScheme();
                 if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
-                    oauth.openInBrowser(context, url);
+                    if (!url.contains("googleapis.com/oauth2/v2/userinfo")
+                            && !url.contains("googleapis.com/auth")) {
+                        oauth.openInBrowser(context, url);
+                    }
                 }
                 return;
             }

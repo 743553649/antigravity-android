@@ -34,15 +34,26 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST) -> bool:
     app_base = "/data/user/0/com.agy.dev" if os.path.exists("/data/user/0/com.agy.dev") and os.access("/data/user/0/com.agy.dev", os.W_OK) else "/data/user/0/com.agy"
     cache_dir = os.environ.get("AGY_CACHE_DIR", os.path.join(app_base, "cache") if os.access(app_base, os.W_OK) else os.path.join(tempfile.gettempdir(), "agy_cache"))
     os.makedirs(cache_dir, exist_ok=True)
-    cached_patched = os.path.join(cache_dir, "language_server_patched_aa7d4a1e")
-    TARGET_SHA = "aa7d4a1e583624033ab9d9d17f92f1844fc44d1d9f127186f5e483d74cdc319d"
+    TARGET_SHA = "1d9750dd874faf2db976756dbb3476e72c2b29779793331f324151d0cb940bb7"
+    cached_patched = os.path.join(cache_dir, f"language_server_patched_{TARGET_SHA[:8]}")
 
     try:
         staged_bin = os.path.join(tmp_dir, "language_server")
+        cache_valid = False
         if os.path.isfile(cached_patched):
-            print("\n[1-2/4] Reusing cached patched core (SHA-256 verified)...")
-            shutil.copyfile(cached_patched, staged_bin)
-        else:
+            import hashlib
+            hasher = hashlib.sha256()
+            with open(cached_patched, "rb") as f:
+                while chunk := f.read(65536):
+                    hasher.update(chunk)
+            if hasher.hexdigest() == TARGET_SHA:
+                cache_valid = True
+                print(f"\n[1-2/4] Reusing cached patched core (SHA-256 verified: {TARGET_SHA[:8]}...)...")
+                shutil.copyfile(cached_patched, staged_bin)
+            else:
+                print(f"\n[!] Cached core SHA mismatch ({hasher.hexdigest()[:8]} != {TARGET_SHA[:8]}); re-patching...")
+
+        if not cache_valid:
             # 1. Extract pristine core to temporary staging area
             print("\n[1/4] Extracting pristine core archive...")
             extractor.extract_core(archive_path, staged_bin)

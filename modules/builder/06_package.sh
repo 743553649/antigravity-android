@@ -8,11 +8,18 @@ RES_DIR="${3:-$APP_DIR/src/main/res}"
 ANDROID_JAR="${4:-$TOOLS_DIR/android.jar}"
 STAGE_ASSETS="${5:-$BUILD_DIR/staging/assets}"
 DEX_FILE="${6:-$BUILD_DIR/dex/classes.dex}"
+BUILD_RES_DIR="${7:-${BUILD_DIR:-}/res}"
+
+RES_ARGS=()
+if [ -n "${BUILD_RES_DIR:-}" ] && [ -d "$BUILD_RES_DIR" ]; then
+    RES_ARGS+=(-S "$BUILD_RES_DIR")
+fi
+RES_ARGS+=(-S "$RES_DIR" --auto-add-overlay)
 
 echo "[*] [06_package] Packaging base resources into unaligned APK..."
 aapt package -f \
     -M "$MANIFEST" \
-    -S "$RES_DIR" \
+    "${RES_ARGS[@]}" \
     -I "$ANDROID_JAR" \
     -F "$UNALIGNED_APK"
 

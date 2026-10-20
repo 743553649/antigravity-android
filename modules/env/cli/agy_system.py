@@ -85,12 +85,22 @@ def cmd_clipboard(args):
     if args.action == "set":
         text = args.text or sys.stdin.read()
         res = client.send_command("clipboard", {"action": "set", "text": text})
-        if res.get("ok"):
+        if args.json:
+            print(json.dumps(res, indent=2))
+        elif res.get("ok"):
             print(f"[OK] Copied {len(text)} characters to clipboard.")
+        else:
+            print(f"[ERROR] Clipboard set failed: {res.get('error', 'unknown error')}", file=sys.stderr)
+            sys.exit(1)
     else:
         res = client.send_command("clipboard", {"action": "get"})
-        if res.get("ok"):
+        if args.json:
+            print(json.dumps(res, indent=2))
+        elif res.get("ok"):
             print(res.get("text", ""))
+        else:
+            print(f"[ERROR] Clipboard get failed: {res.get('error', 'unknown error')}", file=sys.stderr)
+            sys.exit(1)
 
 
 def main():

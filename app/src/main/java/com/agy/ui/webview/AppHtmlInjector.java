@@ -46,6 +46,7 @@ public final class AppHtmlInjector {
                     + "window.__AG_NATIVE_BRIDGE_TOKEN__="
                     + JSONObject.quote(bridge.getBlobBridgeToken()) + ";"
                     + "window.AndroidBridge=window.Android;"
+                    + "window.dialog={showOpenDialog:function(){return new Promise(function(resolve){window.__onDirectoryPicked=function(path){resolve(path);};if(window.Android&&typeof window.Android.openDirectoryPicker==='function'){window.Android.openDirectoryPicker();}else{resolve(null);}});}};"
                     + "})();</script>"
                     // Signals first paint back to native (AndroidBridge.onUiReady)
                     // so the splash is dismissed on real content, not a timer.

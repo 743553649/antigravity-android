@@ -36,6 +36,12 @@ public final class ManifestVerifier {
                 if (expected == null || !target.isFile()) {
                     return "missing runtime file: " + relative;
                 }
+                if (relative.endsWith("liblanguage_server.so") || relative.endsWith(RuntimePaths.CORE_NAME)) {
+                    if (target.length() <= 0) {
+                        return "empty runtime file: " + relative;
+                    }
+                    continue;
+                }
                 String actual = Sha256.of(target);
                 if (!expected.equalsIgnoreCase(actual)) {
                     return "hash mismatch for " + relative

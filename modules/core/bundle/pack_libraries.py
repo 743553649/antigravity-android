@@ -22,6 +22,20 @@ def pack_libraries(glibc_dir: str, dest_lib_dir: str) -> list:
             os.chmod(dst, mode | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
             copied.append(item)
             
+    # Copy glibc/etc network and name service configs (hosts, resolv.conf, nsswitch.conf)
+    etc_src = os.path.join(glibc_dir, "etc")
+    if os.path.isdir(etc_src):
+        dest_etc = os.path.abspath(os.path.join(dest_lib_dir, "..", "etc"))
+        os.makedirs(dest_etc, exist_ok=True)
+        for fname in sorted(os.listdir(etc_src)):
+            s_file = os.path.join(etc_src, fname)
+            if os.path.isfile(s_file):
+                d_file = os.path.join(dest_etc, fname)
+                shutil.copyfile(s_file, d_file)
+                mode = os.stat(d_file).st_mode
+                os.chmod(d_file, mode | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+                copied.append(f"etc/{fname}")
+
     return copied
 
 def main():

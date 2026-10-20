@@ -15,21 +15,23 @@ import envelope
 from subscriber_router import SubscriberRouter
 
 class EventBroker:
-    def __init__(self, routes_path: str = None, outputs_dir: str = None):
+    def __init__(self, routes_path: str = None, outputs_dir: str = None, dispatch_timeout: float = 5.0):
         self.outputs_dir = outputs_path = outputs_dir or os.path.join(IO_ROOT, "outputs")
         routes_file = routes_path or os.path.join(IO_ROOT, "spec", "default_routes.json")
         self.router = SubscriberRouter(routes_file)
         self.in_memory_handlers = {}
+        self.dispatch_timeout = dispatch_timeout
 
     def register_handler(self, pattern: str, handler_callable):
         if pattern not in self.in_memory_handlers:
             self.in_memory_handlers[pattern] = []
         self.in_memory_handlers[pattern].append(handler_callable)
 
-    def publish(self, event_dict: Dict[str, Any]) -> List[str]:
+    def publish(self, event_dict: Dict[str, Any], timeout: float = None) -> List[str]:
         envelope.validate_event(event_dict)
         event_name = event_dict["event"]
         dispatched_to = []
+        effective_timeout = timeout if timeout is not None else self.dispatch_timeout
 
         # 1. In-memory handlers
         for pattern, handlers in self.in_memory_handlers.items():
@@ -51,6 +53,7 @@ class EventBroker:
             if not os.path.isfile(script_path):
                 continue
             
+            proc = None
             try:
                 # Dispatch script: on Android /storage/emulated/0 is mounted noexec,
                 # so shell scripts must be explicitly invoked via /system/bin/sh or bash.
@@ -67,9 +70,36 @@ class EventBroker:
                     stderr=subprocess.PIPE,
                     text=True
                 )
-                proc.communicate(input=raw_json + "\n", timeout=5)
+                proc.communicate(input=raw_json + "\n", timeout=effective_timeout)
                 dispatched_to.append(dest_script_name)
+            except subprocess.TimeoutExpired as e:
+                print(f"[EventBroker] Timeout dispatching to {dest_script_name}: {e}", file=sys.stderr)
+                if proc is not None:
+                    try:
+                        proc.kill()
+                    except OSError:
+                        pass
+                    try:
+                        proc.wait()
+                    except OSError:
+                        pass
+                    if proc.stdin and not proc.stdin.closed:
+                        try:
+                            proc.stdin.close()
+                        except OSError:
+                            pass
+                    if proc.stderr and not proc.stderr.closed:
+                        try:
+                            proc.stderr.close()
+                        except OSError:
+                            pass
             except Exception as e:
                 print(f"[EventBroker] Error dispatching to {dest_script_name}: {e}", file=sys.stderr)
+                if proc is not None and proc.poll() is None:
+                    try:
+                        proc.kill()
+                        proc.wait()
+                    except OSError:
+                        pass
 
         return dispatched_to

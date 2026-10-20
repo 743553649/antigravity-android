@@ -78,14 +78,21 @@ install_one() {
         rewrite_prefix "$PREFIX"
         printf '' | db_put "$name" "$ver" "$arch"
     fi
-    # Auto-generate runtime bridge for any newly installed binary
-    local bin_file runtime_bin="$PREFIX/../runtime/bin"
-    if [ -d "$runtime_bin" ]; then
-        for bin_file in "$PREFIX/bin"/*; do
-            [ -f "$bin_file" ] || continue
-            local bname; bname="$(basename "$bin_file")"
-            if [ ! -f "$runtime_bin/$bname" ]; then
-                cat > "$runtime_bin/$bname" <<EOF
+    # Auto-generate runtime bridge only for newly installed binaries in this package
+    local runtime_bin="$PREFIX/../runtime/bin"
+    if [ -d "$runtime_bin" ] && [ -n "$pkg_files" ]; then
+        local p bname bin_file
+        while IFS= read -r p; do
+            case "$p" in
+                bin/*)
+                    bname="${p#bin/}"
+                    case "$bname" in
+                        */*|"") continue ;;
+                    esac
+                    bin_file="$PREFIX/bin/$bname"
+                    [ -f "$bin_file" ] || [ -L "$bin_file" ] || continue
+                    if [ ! -f "$runtime_bin/$bname" ]; then
+                        cat > "$runtime_bin/$bname" <<EOF
 #!/system/bin/sh
 PREFIX='$PREFIX'
 export PREFIX
@@ -100,9 +107,11 @@ export OPENSSL_CONF="\$PREFIX/etc/tls/openssl.cnf"
 export SSL_CERT_FILE="\$PREFIX/etc/tls/cert.pem"
 exec "\$PREFIX/bin/$bname" "\$@"
 EOF
-                chmod 755 "$runtime_bin/$bname" 2>/dev/null || true
-            fi
-        done
+                        chmod 755 "$runtime_bin/$bname" 2>/dev/null || true
+                    fi
+                    ;;
+            esac
+        done <<< "$pkg_files"
     fi
     printf 'Setting up %s (%s) ...\n' "$name" "$ver"
 }

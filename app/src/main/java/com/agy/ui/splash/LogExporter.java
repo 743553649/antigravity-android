@@ -127,7 +127,7 @@ public final class LogExporter {
             }
 
             if (savedFile == null) {
-                File direct = new File("/storage/emulated/0/Download/antigravity-core.log");
+                File direct = new File(Environment.getExternalStorageDirectory(), "Download/antigravity-core.log");
                 try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(direct), UTF8)) {
                     writer.write(report);
                     savedFile = direct;

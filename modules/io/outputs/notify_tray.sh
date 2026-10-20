@@ -5,9 +5,9 @@
 read -r RAW_JSON || exit 0
 [ -z "$RAW_JSON" ] && exit 0
 
-EVENT_NAME=$(echo "$RAW_JSON" | grep -o '"event":"[^"]*' | cut -d'"' -f4)
-MESSAGE=$(echo "$RAW_JSON" | grep -o '"message":"[^"]*' | cut -d'"' -f4)
-[ -z "$MESSAGE" ] && MESSAGE=$(echo "$RAW_JSON" | grep -o '"url":"[^"]*' | cut -d'"' -f4)
+EVENT_NAME=$(echo "$RAW_JSON" | grep -o '"event"[[:space:]]*:[[:space:]]*"[^"]*' | head -n 1 | cut -d'"' -f4)
+MESSAGE=$(echo "$RAW_JSON" | grep -o '"message"[[:space:]]*:[[:space:]]*"[^"]*' | head -n 1 | cut -d'"' -f4)
+[ -z "$MESSAGE" ] && MESSAGE=$(echo "$RAW_JSON" | grep -o '"url"[[:space:]]*:[[:space:]]*"[^"]*' | head -n 1 | cut -d'"' -f4)
 [ -z "$MESSAGE" ] && MESSAGE="Event received: $EVENT_NAME"
 
 # Check if agy-notify exists

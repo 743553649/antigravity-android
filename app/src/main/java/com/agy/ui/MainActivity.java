@@ -52,8 +52,8 @@ public class MainActivity extends Activity
     private static final String TAG = "MainActivity";
     private static final int REQUEST_STORAGE = 100;
     private static final int REQUEST_FILE_CHOOSER = 1002;
-    private static final long SPLASH_TIMEOUT_MS = 45000;
-    private static final long POLL_STARTUP_INTERVAL_MS = 250;
+    private static final long SPLASH_TIMEOUT_MS = 60000;
+    private static final long POLL_STARTUP_INTERVAL_MS = 50;
     private static final long POLL_READY_INTERVAL_MS = 1000;
 
     public static volatile MainActivity activeActivity;
@@ -123,7 +123,7 @@ public class MainActivity extends Activity
             }
             return;
         }
-        if (CoreRuntimeState.serverUrl == null && !splash.isFatalShown()
+        if (!appLoaded && CoreRuntimeState.serverUrl == null && !splash.isFatalShown()
                 && System.currentTimeMillis() > splashDeadline) {
             splash.showFatalError("core did not start within " + (SPLASH_TIMEOUT_MS / 1000) + "s");
         }
@@ -163,6 +163,7 @@ public class MainActivity extends Activity
 
         splashDeadline = System.currentTimeMillis() + SPLASH_TIMEOUT_MS;
         requestStoragePermissions();
+
         startCoreService();
     }
 
@@ -233,6 +234,9 @@ public class MainActivity extends Activity
             activeActivity = null;
         }
         AppLifecycle.destroy(handler);
+        if (androidBridge != null) {
+            androidBridge.setActivity(null);
+        }
         if (rootLayout != null) {
             rootLayout.removeAllViews();
         }
@@ -422,9 +426,50 @@ public class MainActivity extends Activity
         }
     }
 
+    public static final int REQUEST_DIR_CHOOSER = 2002;
+
+    public void launchDirectoryPicker() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_DIR_CHOOSER);
+        } catch (Throwable t) {
+            Log.w(TAG, "Cannot launch directory picker: " + t.getMessage());
+            if (webViewHost != null && webViewHost.getWebView() != null) {
+                webViewHost.getWebView().evaluateJavascript("window.__onDirectoryPicked && window.__onDirectoryPicked(null);", null);
+            }
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_DIR_CHOOSER) {
+            String realPath = null;
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                Uri treeUri = data.getData();
+                try {
+                    grantUriPermission(getPackageName(), treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (Throwable ignored) {}
+                try {
+                    getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (Throwable ignored) {}
+                realPath = com.agy.util.DocumentsContractHelper.resolveTreeUriToPath(this, treeUri);
+            }
+            if (webViewHost != null && webViewHost.getWebView() != null) {
+                final String path = realPath;
+                webViewHost.getWebView().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        String jsArg = path != null ? org.json.JSONObject.quote(path) : "null";
+                        webViewHost.getWebView().evaluateJavascript(
+                                "window.__onDirectoryPicked && window.__onDirectoryPicked(" + jsArg + ");", null);
+                    }
+                });
+            }
+            return;
+        }
         if (requestCode == REQUEST_FILE_CHOOSER) {
             if (filePathCallback != null) {
                 Uri[] results = null;

@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(MODULES_ROOT, "core", "unpack"))
 import pipeline
 import extractor
 
-EXPECTED_FINAL_SHA = "ec217e58f59eeb9ccba1c292604d1b92fe14b1a8dc9a2e25b4bc51a8736104c6"
+EXPECTED_FINAL_SHA = "1d9750dd874faf2db976756dbb3476e72c2b29779793331f324151d0cb940bb7"
 
 class TestFullPipeline(unittest.TestCase):
     def setUp(self):
@@ -30,13 +30,13 @@ class TestFullPipeline(unittest.TestCase):
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_01_dry_run_pipeline(self):
-        ok = pipeline.run_pipeline(self.staged_bin, dry_run=True)
+        ok = pipeline.run_pipeline(self.staged_bin, dry_run=True, allow_missing=True)
         self.assertTrue(ok)
 
     def test_02_apply_and_verify(self):
         # 1. Apply patches
         manifest_out = os.path.join(self.tmp_dir, "runtime.manifest.json")
-        ok_apply = pipeline.run_pipeline(self.staged_bin, manifest_path=manifest_out)
+        ok_apply = pipeline.run_pipeline(self.staged_bin, allow_missing=False, manifest_path=manifest_out)
         self.assertTrue(ok_apply)
         self.assertTrue(os.path.isfile(manifest_out))
 
@@ -46,12 +46,17 @@ class TestFullPipeline(unittest.TestCase):
         self.assertEqual(final_sha, EXPECTED_FINAL_SHA)
 
         # 2. Verify pipeline
-        ok_verify = pipeline.run_pipeline(self.staged_bin, verify=True)
+        ok_verify = pipeline.run_pipeline(self.staged_bin, verify=True, allow_missing=False)
         self.assertTrue(ok_verify)
 
         # 3. Idempotent re-apply
-        ok_reapply = pipeline.run_pipeline(self.staged_bin)
+        ok_reapply = pipeline.run_pipeline(self.staged_bin, allow_missing=False)
         self.assertTrue(ok_reapply)
+
+    def test_03_full_pipeline_without_allow_missing(self):
+        # With all modules including crash_suppressor present, allow_missing=False succeeds
+        ok = pipeline.run_pipeline(self.staged_bin, dry_run=True, allow_missing=False)
+        self.assertTrue(ok)
 
 if __name__ == "__main__":
     unittest.main()

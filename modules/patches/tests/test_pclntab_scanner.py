@@ -30,5 +30,34 @@ class TestPclntabScanner(unittest.TestCase):
         enc_53 = pclntab_scanner.encode_movz_x0(53)
         self.assertEqual(enc_53, bytes.fromhex("a00680d2"))
 
+    def test_02_find_function_direct_and_cache(self):
+        import struct
+        data = bytearray(1024)
+        # funcnametab at 200
+        data[200:213] = b"runtime.main\x00"
+        data[213:232] = b"syscall.faccessat2\x00"
+
+        # pt at 400 with 3 entries
+        struct.pack_into("<II", data, 400, 0x1000, 100)
+        struct.pack_into("<II", data, 408, 0x2000, 120)
+        struct.pack_into("<II", data, 416, 0x2500, 0)
+
+        # _func records at 500 and 520
+        struct.pack_into("<Ii", data, 500, 0x1000, 0)
+        struct.pack_into("<Ii", data, 520, 0x2000, 13)
+
+        pcln = {"pcln_base": 0, "funcname_off": 200, "pcln_off": 400, "nfunc": 3}
+        found = pclntab_scanner.find_function(data, pcln, "syscall.faccessat2")
+        self.assertEqual(found, (0x2000, 0x500))
+
+        # Check cache
+        self.assertIn("_cache", pcln)
+        self.assertEqual(pcln["_cache"]["syscall.faccessat2"], (0x2000, 0x500))
+
+        # Non-existent function
+        not_found = pclntab_scanner.find_function(data, pcln, "non.existent.func")
+        self.assertIsNone(not_found)
+        self.assertIsNone(pcln["_cache"]["non.existent.func"])
+
 if __name__ == "__main__":
     unittest.main()

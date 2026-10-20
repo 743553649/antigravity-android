@@ -90,14 +90,21 @@ public final class OpenUrlWatcher {
             }
         }
         // Fallback: detect OAuth or login URLs emitted by language_server / openBrowser
-        if (line.contains("accounts.google.com") || line.contains("oauth2")
+        if (line.contains("accounts.google.com")
                 || (line.contains("/auth/callback") && line.contains("http"))) {
             Matcher m = URL_PATTERN.matcher(line);
             while (m.find()) {
                 String candidate = m.group();
                 if (candidate.startsWith("http://") || candidate.startsWith("https://")) {
-                    if (candidate.contains("accounts.google.com") || candidate.contains("oauth2")
-                            || candidate.contains("auth")) {
+                    // Ignore internal backend API endpoints and userinfo requests
+                    if (candidate.contains("googleapis.com/oauth2/v2/userinfo")
+                            || candidate.contains("googleapis.com/auth")
+                            || candidate.contains("daily-cloudcode-pa.googleapis.com")) {
+                        continue;
+                    }
+                    if (candidate.contains("accounts.google.com")
+                            || candidate.contains("/auth/callback")
+                            || candidate.contains("antigravity.google/auth")) {
                         Log.i(TAG, "stream regex detected auth URL: "
                                 + SensitiveDataRedactor.safeUrl(candidate));
                         dispatchIfValid(candidate);
@@ -111,6 +118,13 @@ public final class OpenUrlWatcher {
         if (url == null) return;
         url = url.trim();
         if (url.isEmpty() || (!url.startsWith("http://") && !url.startsWith("https://"))) return;
+
+        // Never dispatch internal Google API endpoints to the user's browser
+        if (url.contains("googleapis.com/oauth2/v2/userinfo")
+                || url.contains("googleapis.com/auth")
+                || url.contains("daily-cloudcode-pa.googleapis.com")) {
+            return;
+        }
 
         long now = System.currentTimeMillis();
         if (url.equals(lastDispatchedUrl) && (now - lastDispatchedTime) < 1500) {

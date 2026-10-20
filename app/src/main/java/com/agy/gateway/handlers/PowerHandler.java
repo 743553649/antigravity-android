@@ -36,6 +36,8 @@ public final class PowerHandler {
                 return resp;
             }
 
+            cleanupUnheld();
+
             if ("release".equalsIgnoreCase(action)) {
                 PowerManager.WakeLock lock = locks.remove(tag);
                 if (lock != null && lock.isHeld()) {
@@ -47,9 +49,25 @@ public final class PowerHandler {
                 return resp;
             }
 
+            if ("status".equalsIgnoreCase(action)) {
+                PowerManager.WakeLock lock = locks.get(tag);
+                boolean held = lock != null && lock.isHeld();
+                if (lock != null && !held) {
+                    locks.remove(tag, lock);
+                }
+                resp.put("ok", true);
+                resp.put("held", held);
+                resp.put("tag", tag);
+                return resp;
+            }
+
             // Acquire
-            PowerManager.WakeLock lock = locks.computeIfAbsent(tag, k ->
-                    powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "com.agy:wakelock:" + k));
+            PowerManager.WakeLock lock = locks.compute(tag, (k, existing) -> {
+                if (existing != null && existing.isHeld()) {
+                    return existing;
+                }
+                return powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "com.agy:wakelock:" + k);
+            });
 
             if (!lock.isHeld()) {
                 if (timeoutMs > 0) {
@@ -60,8 +78,13 @@ public final class PowerHandler {
                 Log.d(TAG, "Acquired wakelock: " + tag + (timeoutMs > 0 ? " timeout=" + timeoutMs + "ms" : ""));
             }
 
+            boolean isHeld = lock.isHeld();
+            if (!isHeld) {
+                locks.remove(tag, lock);
+            }
+
             resp.put("ok", true);
-            resp.put("held", lock.isHeld());
+            resp.put("held", isHeld);
             resp.put("tag", tag);
         } catch (Exception e) {
             Log.w(TAG, "wakelock error: " + e.getMessage());
@@ -73,6 +96,16 @@ public final class PowerHandler {
         return resp;
     }
 
+    private void cleanupUnheld() {
+        for (java.util.Iterator<java.util.Map.Entry<String, PowerManager.WakeLock>> it = locks.entrySet().iterator(); it.hasNext(); ) {
+            java.util.Map.Entry<String, PowerManager.WakeLock> entry = it.next();
+            PowerManager.WakeLock lock = entry.getValue();
+            if (lock == null || !lock.isHeld()) {
+                it.remove();
+            }
+        }
+    }
+
     public void releaseAll() {
         for (String tag : locks.keySet()) {
             PowerManager.WakeLock lock = locks.remove(tag);
@@ -82,5 +115,6 @@ public final class PowerHandler {
                 } catch (Exception ignored) {}
             }
         }
+        locks.clear();
     }
 }

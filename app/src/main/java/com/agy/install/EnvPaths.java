@@ -34,6 +34,11 @@ public final class EnvPaths {
     /** Same pattern, applied per-line across a whole script (see gzexe). */
     public static final Pattern TERMUX_SHEBANG_LINES =
             Pattern.compile("(?m)^#!(" + ANDROID_PREFIX_REGEX + ")([^\\n]*)$");
+    /** Linux standard /usr/bin/env shebang pattern (not supported on Android bionic). */
+    public static final Pattern ENV_SHEBANG =
+            Pattern.compile("^#![ \\t]*/usr/bin/env[ \\t]+([^ \\t\\r\\n]+)(.*)$");
+    public static final Pattern ENV_SHEBANG_LINES =
+            Pattern.compile("(?m)^#![ \\t]*/usr/bin/env[ \\t]+([^ \\t\\r\\n]+)([^\\n]*)$");
     /** Any app-private prefix ending at the usr path component. */
     public static final Pattern TERMUX_ANY_PREFIX =
             Pattern.compile(ANDROID_PREFIX_REGEX + "(?=/|$)");

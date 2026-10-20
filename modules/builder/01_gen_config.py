@@ -51,7 +51,7 @@ def main():
     is_debug = "true" if is_dev else "false"
 
     pkg_dir = os.path.join(build_dir, "gen", *pkg_base.split("."))
-    res_values_dir = os.path.join(PROJECT_ROOT, "app", "src", "main", "res", "values")
+    res_values_dir = os.path.join(build_dir, "res", "values")
     os.makedirs(pkg_dir, exist_ok=True)
     os.makedirs(res_values_dir, exist_ok=True)
 
@@ -91,6 +91,8 @@ def main():
     target_manifest = os.path.join(build_dir, "AndroidManifest.xml")
     with open(src_manifest, "r", encoding="utf-8") as f:
         content = f.read()
+
+    content = content.replace('${applicationId}', app_id)
 
     if is_dev:
         content = content.replace('package="com.agy"', 'package="com.agy.dev"')

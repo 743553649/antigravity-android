@@ -46,5 +46,31 @@ class TestEventBroker(unittest.TestCase):
 
         self.assertEqual(received, ["agent.started"])
 
+    def test_03_timeout_cleanup(self):
+        import tempfile
+        import time
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            hang_script = os.path.join(tmp_dir, "hang.py")
+            with open(hang_script, "w") as f:
+                f.write("import time\ntime.sleep(5)\n")
+
+            broker = EventBroker(outputs_dir=tmp_dir, dispatch_timeout=0.2)
+            broker.router.subscribe("test.timeout", ["hang.py"])
+
+            ev = envelope.create_event("test.timeout", "test_source")
+            t0 = time.time()
+            dispatched = broker.publish(ev)
+            elapsed = time.time() - t0
+
+            # Should finish quickly after timeout (not 5s)
+            self.assertLess(elapsed, 2.0)
+            self.assertEqual(dispatched, [])
+        finally:
+            if os.path.exists(hang_script):
+                os.remove(hang_script)
+            os.rmdir(tmp_dir)
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,3 @@
-(function(){
 // Fast theme bootstrap. Runs before the app bundle so the first paint already
 // uses the host-selected color scheme. Fixed: honor "light" instead of always
 // forcing the dark class.
@@ -35,5 +34,3 @@
   document.documentElement.classList.add(theme);
 })();
 
-
-})();

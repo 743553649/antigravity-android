@@ -18,7 +18,22 @@ CLR_BLUE = "\033[34m"
 CLR_CYAN = "\033[36m"
 CLR_GRAY = "\033[90m"
 
-LOG_DIR = os.path.expanduser("/data/user/0/com.agy/files/logs")
+def _resolve_log_dir():
+    home = os.environ.get("HOME")
+    if home and os.path.isdir(home):
+        return os.path.join(home, "logs")
+    try:
+        mod_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ctx_dir = os.path.join(mod_root, "context")
+        if ctx_dir not in sys.path:
+            sys.path.insert(0, ctx_dir)
+        import path_resolver
+        return os.path.join(path_resolver.load_paths().get("app_root"), "logs")
+    except Exception:
+        pass
+    return os.path.expanduser("/data/user/0/com.agy/files/logs")
+
+LOG_DIR = _resolve_log_dir()
 CMD_LOG_FILE = os.path.join(LOG_DIR, "commands.jsonl")
 
 

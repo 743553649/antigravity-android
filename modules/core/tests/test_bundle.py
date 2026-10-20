@@ -54,6 +54,9 @@ class TestBundle(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(rt_dir, "lib", "libc.so.6")))
         self.assertTrue(os.path.isfile(os.path.join(rt_dir, "certs", "ca-certificates.crt")))
         self.assertTrue(os.path.isfile(os.path.join(rt_dir, "seed", "AGENTS.md")))
+        self.assertTrue(os.path.isfile(os.path.join(rt_dir, "etc", "hosts")))
+        self.assertTrue(os.path.isfile(os.path.join(rt_dir, "etc", "resolv.conf")))
+        self.assertTrue(os.path.isfile(os.path.join(rt_dir, "etc", "nsswitch.conf")))
         self.assertTrue(os.path.isfile(os.path.join(rt_dir, "manifest.json")))
 
         # Verify manifest matches assembled runtime

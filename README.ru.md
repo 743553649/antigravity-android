@@ -1,247 +1,147 @@
 <div align="center">
 
-  <!-- Language Switcher -->
   <p>
-    <a href="README.md"><font color="#7d8590">English</font></a> &nbsp;&bull;&nbsp; <b>Русский</b>
+    <a href="README.md">English</a> &nbsp;&bull;&nbsp; <b>Русский</b>
   </p>
 
   <br/>
 
-  <img src="docs/assets/logo.png" alt="Antigravity" width="96" height="96" style="border-radius: 22px; margin-bottom: 12px;" />
+  <img src="docs/assets/logo.png" alt="Antigravity" width="88" height="88" style="border-radius: 20px;" />
 
-  <p><font size="6"><b>Antigravity для Android</b></font></p>
+  # Antigravity для Android
 
-  <p><font color="#7d8590">Автономная среда разработки на базе ИИ-агентов, реализованная нативно для Android и ARM64.</font></p>
+  **Автономная среда разработки на базе ИИ, работающая нативно на Android и ARM64.**
 
-  <p>
-    <code>Android 7.0+</code> &nbsp;&bull;&nbsp;
-    <code>ARM64 v8.0-A+</code> &nbsp;&bull;&nbsp;
-    <code>Shizuku Ready</code> &nbsp;&bull;&nbsp;
-    <code>Native Bionic</code> &nbsp;&bull;&nbsp;
-    <code>Consistent Keystore</code> &nbsp;&bull;&nbsp;
-    <code>Apache 2.0</code>
-  </p>
+  [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://android.com)
+  [![Arch](https://img.shields.io/badge/ARM64-v8.0--A%2B-blue?style=flat-square)](https://arm.com)
+  [![Release](https://img.shields.io/badge/Версия-2.4.0-blueviolet?style=flat-square)](https://github.com/werdio325-png/antigravity-android/releases)
+  [![License](https://img.shields.io/badge/Лицензия-Apache_2.0-orange?style=flat-square)](LICENSE)
 
   <br/>
 
-  <!-- Hero Visual -->
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero_dark.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/hero_light.png">
-    <img alt="Интерфейс Antigravity в работе" src="docs/assets/hero_dark.png" width="100%" style="border-radius: 14px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);" />
+    <img alt="Интерфейс Antigravity" src="docs/assets/hero_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128,128,128,0.2);" />
   </picture>
-  <p align="center"><font size="2" color="#7d8590">Интерфейс автономной агентной разработки Antigravity на Android (Linux 6.1, AArch64)</font></p>
 
 </div>
 
 ---
 
-<p><font size="5"><b>Архитектурный обзор</b></font></p>
+### Обзор
 
-**Antigravity для Android** переносит платформу автономного агентного программирования от Google непосредственно в мобильную операционную систему.
+**Antigravity для Android** переносит автономное агентное программирование прямо на мобильное устройство.
 
-В отличие от терминальных чат-клиентов или виртуализованных окружений (PRoot, QEMU, chroot), Antigravity исполняется **нативно в пространстве пользователя Android (Bionic userspace)** в рамках процесса приложения. Агент на базе моделей Gemini самостоятельно исследует кодовую базу, редактирует файлы проекта, запускает системные компиляторы и валидирует результаты непосредственно на целевом мобильном оборудовании.
-
-> [!NOTE]
-> **Прямое исполнение с прозрачной совместимостью:** Процессы запускаются нативно через гибридный Bionic/Glibc загрузчик без накладных расходов виртуализации, используя аппаратную скорость хранилища UFS и инструкции Large System Extensions (LSE) архитектуры ARMv8.1-A+ (с прозрачной пользовательской эмуляцией атомики и SIMD для процессоров ARMv8.0-A через `liblse_compat.so`).
+Никаких PRoot, chroot или накладных расходов виртуализации. Antigravity исполняется **нативно в пространстве пользователя Android (Bionic)**, раскрывая полную скорость физических ядер CPU и накопителей UFS. Агент на базе моделей Gemini автономно анализирует кодовую базу, редактирует файлы проекта, компилирует бинарники и запускает тесты полностью локально.
 
 ---
 
-<p><font size="5"><b>Ключевые возможности</b></font></p>
+### Главное в v2.4
 
-<table width="100%" style="border-collapse: separate; border-spacing: 8px; border: none;">
-  <tr>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Автономный агент Gemini</b></font></p>
-      <p><font color="#7d8590">Полный цикл разработки: декомпозиция задач, многофайловые правки, компиляция исходного кода, выполнение тестов и отладка ошибок сборки.</font></p>
-    </td>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Привилегии Shizuku (Rish)</b></font></p>
-      <p><font color="#7d8590">Повышение привилегий до уровня оболочки ADB (<code>uid=2000</code>) без root: установка пакетов (<code>pm install</code>), доступ к системным журналам и внешним накопителям.</font></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Нативный менеджер пакетов</b></font></p>
-      <p><font color="#7d8590">Легковесный пакетный менеджер <code>pkg</code> (tlx) на Bash и AWK. Прямая установка инструментариев (<code>git</code>, <code>python</code>, <code>nodejs</code>, <code>clang</code>) из репозиториев Termux.</font></p>
-    </td>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Адаптивные режимы Mobile & Desktop</b></font></p>
-      <p><font color="#7d8590">Сенсорный мобильный интерфейс по умолчанию и масштабированный десктопный режим с динамическим переключением User-Agent для планшетов и Samsung DeX.</font></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Системная осведомлённость агента</b></font></p>
-      <p><font color="#7d8590">Автоматически инициализируемые правила (<code>AGENTS.md</code>) информируют модель о путях префикса, синтаксисе пакетов и блокируют несовместимые настольные песочницы.</font></p>
-    </td>
-    <td width="50%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>Бесшовные обновления</b></font></p>
-      <p><font color="#7d8590">Интегрированный стабильный ключ подписи (Keystore): новые релизы APK обновляются поверх существующей версии с сохранением проектов и сессий.</font></p>
-    </td>
-  </tr>
-</table>
+* **Модульная архитектура:** Разделение ядра на 6 изолированных подсистем (`modules/*`) с отдельными тестами.
+* **Нативный сплэш:** Отрисовка анимации точек на Canvas экономит ~40 МБ RAM и ускоряет запуск.
+* **Desktop Mode:** Мгновенный переключатель в настройках *Appearance* для планшетов, клавиатур и Samsung DeX.
+* **Поддержка ARMv8.0-A:** Встроенная эмуляция атомиков и SIMD (`liblse_compat.so`) для старых чипсетов.
+* **Фоновый микро-демон:** Легковесный `agy-daemon` (<10 МБ RAM) с планировщиком cron, слежением за файлами и очередью AI-задач.
 
 ---
 
-<p><font size="5"><b>Визуальный обзор возможностей</b></font></p>
+### Ключевые возможности
 
-### 1. Рабочее пространство разработчика
-
-Пользовательский интерфейс адаптирован для мобильных экранов: боковая панель проектов, навигация по сессиям диалога, селектор моделей Gemini и синхронизация системной темы оформления.
-
-<br/>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/workspace_dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/workspace_light.png">
-  <img alt="Рабочее пространство Antigravity" src="docs/assets/workspace_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
-</picture>
-<p align="center"><font size="2" color="#7d8590">Навигационная панель и активное рабочее пространство (тёмная и светлая темы)</font></p>
-
-<br/>
+* **Автономный агент:** Планирует задачи, правит код по всему проекту, вызывает консольные инструменты и устраняет ошибки сборки.
+* **Привилегии Shizuku:** Прямой доступ к ADB-оболочке (`uid=2000`) без root для установки пакетов и чтения системных логов.
+* **Встроенный менеджер `pkg`:** Быстрая установка инструментариев (`git`, `python`, `node`, `clang`) из репозиториев Termux.
+* **Адаптивный интерфейс:** Удобное сенсорное управление на телефоне с возможностью переключения в десктопный вид.
+* **Бесшовные обновления:** Единый ключ подписи гарантирует сохранение сессий и проектов при обновлении APK.
 
 ---
 
-### 2. Управление отображением: Mobile & Desktop Mode
+### Демонстрация возможностей
 
-В меню настроек внешнего вида (*Appearance*) встроен переключатель **Desktop Mode**:
-* **Mobile Mode (по умолчанию):** Крупные элементы сенсорного ввода, оптимизированные для управления одной рукой и работы с виртуальной клавиатурой.
-* **Desktop Mode:** Расширенный вьюпорт с десктопным User-Agent и широким обзором редактора (для планшетов, физических клавиатур и режима Samsung DeX).
-* *Переключение применяется динамически без перезапуска приложения через автоматическую перезагрузку WebView.*
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/workspace_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/workspace_light.png">
+    <img alt="Рабочее пространство" src="docs/assets/workspace_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings_desktop_mode_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/settings_desktop_mode_light.png">
+    <img alt="Переключатель Desktop Mode" src="docs/assets/settings_desktop_mode_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+</p>
+<p align="center"><sub>Слева: Рабочее пространство на смартфоне &bull; Справа: Переключатель Desktop Mode</sub></p>
 
-<br/>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings_desktop_mode_dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/settings_desktop_mode_light.png">
-  <img alt="Настройки Appearance и переключатель Desktop Mode" src="docs/assets/settings_desktop_mode_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
-</picture>
-<p align="center"><font size="2" color="#7d8590">Панель Appearance с интегрированным переключателем Desktop Mode</font></p>
-
-<br/>
-
----
-
-### 3. Автономная работа агента в терминале
-
-Агент напрямую взаимодействует с системой: вызывает бинарники в userspace, создаёт изолированные структуры каталогов, компилирует код и анализирует диагностические выводы без участия пользователя.
-
-<br/>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_exec_dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_exec_light.png">
-  <img alt="Исполнение терминальных команд агентом" src="docs/assets/demo_exec_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
-</picture>
-<p align="center"><font size="2" color="#7d8590">Агент инициализирует структуру проекта и запрашивает параметры ядра Android 6.1</font></p>
-
-<br/>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_exec_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_exec_light.png">
+    <img alt="Выполнение команд" src="docs/assets/demo_exec_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
+    <img alt="Бенчмарк UFS" src="docs/assets/demo_benchmark_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
+  </picture>
+</p>
+<p align="center"><sub>Слева: Агент выполняет команды в шелле &bull; Справа: Нативный бенчмарк памяти UFS (>1200 МБ/с)</sub></p>
 
 ---
 
-### 4. Аппаратная производительность накопителя
+### Быстрый старт
 
-В ходе тестирования агент разработал на Python специализированную утилиту замера пропускной способности хранилища и провёл стресс-тест. Скорость последовательного чтения превысила **1222 МБ/с**, а случайная запись достигла **84 395 IOPS**, подтверждая нативную производительность шины UFS без накладных расходов виртуализации.
-
-<br/>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
-  <img alt="Результаты бенчмарка памяти агентом" src="docs/assets/demo_benchmark_dark.png" width="100%" style="border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
-</picture>
-<p align="center"><font size="2" color="#7d8590">Итоговый отчёт бенчмарка с табличным форматированием и рекомендациями по рабочей области</font></p>
-
-<br/>
+1. **Скачайте APK** со страницы [Releases](https://github.com/werdio325-png/antigravity-android/releases):
+   * `agy.apk` — стандартная релизная версия.
+   * `agy-dev.apk` — отладочная версия для разработчиков.
+2. **Предоставьте доступ к памяти** (`Все файлы`). *(Опционально: подключите Shizuku для доступа к ADB)*.
+3. **Установите рабочее окружение** в терминале или через агента:
+   ```bash
+   pkg update && pkg install git python nodejs
+   ```
 
 ---
 
-<p><font size="5"><b>Установка и первый запуск</b></font></p>
+### Сборка и тестирование
 
-<table width="100%" style="border-collapse: separate; border-spacing: 8px; border: none;">
-  <tr>
-    <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>1. Загрузка APK</b></font></p>
-      <p><font color="#7d8590">В разделе <a href="https://github.com/werdio325-png/antigravity-android/releases">Releases</a> представлены релизные пакеты:<br/><br/>
-      &bull; <b><code>antigravity.apk</code></b> — стандартная версия (порт 45157).<br/>
-      &bull; <b><code>antigravity-bypass.apk</code></b> — сборка с патчем региональных ограничений.<br/><br/>
-      <i>Поддерживается бесшовное обновление поверх старых сборок.</i></font></p>
-    </td>
-    <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>2. Настройка прав</b></font></p>
-      <p><font color="#7d8590">Предоставьте разрешение на доступ к хранилищу (<code>MANAGE_EXTERNAL_STORAGE</code>).<br/><br/>
-      <i>(Опционально)</i> Запустите службу <b>Shizuku</b> и подтвердите доступ для взаимодействия с оболочкой ADB без root.</font></p>
-    </td>
-    <td width="33%" valign="top" style="border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; padding: 16px;">
-      <p><font size="4"><b>3. Установка инструментов</b></font></p>
-      <p><font color="#7d8590">Установите требуемый инструментарий через встроенный терминал:<br/><br/>
-      <code>pkg update</code><br/>
-      <code>pkg install git python nodejs</code><br/><br/>
-      Среда готова к компиляции и разработке.</font></p>
-    </td>
-  </tr>
-</table>
+```bash
+# Сборка релизного APK (dist/agy.apk):
+bash build.sh
 
----
+# Сборка dev-редакции (dist/agy-dev.apk):
+bash build.sh --dev
 
-<p><font size="5"><b>Системные требования</b></font></p>
-
-<table width="100%" style="border-collapse: separate; border-spacing: 0; border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 12px; overflow: hidden;">
-  <thead>
-    <tr>
-      <th style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">Компонент</th>
-      <th style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">Минимальные требования</th>
-      <th style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">Рекомендуемые требования</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>Архитектура процессора</b></td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>ARMv8.0-A+</b> (Cortex-A53, A55, Kryo, Snapdragon 685+)</td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>ARMv8.2-A / ARMv9</b> (Snapdragon 8 Gen 1+, Dimensity, Tensor)</td>
-    </tr>
-    <tr>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>Оперативная память</b></td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">4 ГБ LPDDR4X</td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">8 ГБ+ LPDDR5 / LPDDR5X</td>
-    </tr>
-    <tr>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>Свободная дисковая память</b></td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">2 ГБ (ядро платформы)</td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">8 ГБ+ UFS (для пакетов и кэша сборки)</td>
-    </tr>
-    <tr>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);"><b>Версия платформы Android</b></td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">Android 7.0 (API 24)</td>
-      <td style="padding: 12px 16px; border-bottom: 1px solid rgba(128, 128, 128, 0.2);">Android 12 – 16+</td>
-    </tr>
-    <tr>
-      <td style="padding: 12px 16px;"><b>Привилегии доступа</b></td>
-      <td style="padding: 12px 16px;">Стандартный пользователь</td>
-      <td style="padding: 12px 16px;">Shizuku (Активный сервис ADB)</td>
-    </tr>
-  </tbody>
-</table>
-
----
-
-<p><font size="5"><b>Структура репозитория</b></font></p>
-
-```text
-antigravity-android/
-├── app/        # Android Host, WebView и супервизор процессов
-├── build/      # Детерминированный сборочный конвейер без Gradle (aapt, javac, d8, apksigner)
-├── bus/        # Shell-шина, демоны IPC и композиторы переменных
-├── config/     # Централизованные конфигурации окружения (app.env, paths.env, tools.env)
-├── docs/       # Архитектурные спецификации, технические описания и медиа-ассеты
-├── env/        # Bionic-тулчейн, оверлей файловой системы и пакетный менеджер pkg
-├── patches/    # Низкоуровневые бинарные патчи (Go pclntab, обход seccomp, AArch64)
-└── web/        # Веб-интерфейс, эргономика сенсорного ввода и динамический патчер
+# Запуск полного набора тестов:
+bash test_all_modules.sh
 ```
 
 ---
 
+### Структура проекта
+
+```text
+antigravity/
+├── config/             # Константы приложения, пути окружения и правила агента
+├── modules/            # Модульная архитектура ядра (v2.4+)
+│   ├── core/           # Распаковка, glibc-линковщик, системные шимы, SHA-256
+│   ├── patches/        # Движок бинарного патчинга (системные вызовы, DNS, SIGILL)
+│   ├── io/             # Шина ввода-вывода (I/O Bus): event broker, FIFO, сокеты
+│   ├── env/            # Резолвер путей, диагностика, логи Flight Recorder, CLI
+│   ├── builder/        # Сборщик APK без Gradle (javac, D8, aapt, zipalign, apksigner)
+│   └── runner/         # Подготовка рантайма, health probe, E2E тесты
+├── app/                # Android-хост (нативный сплэш, WebView, мосты)
+├── web/                # Веб-интерфейс, переключатель desktop mode, темы
+├── env/                # Bionic userspace, оверлей Termux, менеджер pkg, liblse_compat
+├── docs/assets/        # Скриншоты, баннеры и диаграммы
+├── build.sh            # Корневой скрипт сборки APK
+└── test_all_modules.sh # Полный набор тестов для всех 6 модулей
+```
+
+> [!TIP]
+> Каждый модуль в `modules/`, `app/`, `web/` и `env/` содержит собственный файл `README.md` с глубоким описанием архитектуры и компонентов.
+
+---
+
 <div align="center">
-  <p><font color="#7d8590">Проект распространяется под условиями лицензии <a href="LICENSE">Apache License 2.0</a></font></p>
+  <sub>Распространяется под лицензией <a href="LICENSE">Apache 2.0</a></sub>
 </div>

@@ -190,6 +190,8 @@ public final class SystemGatewayServer {
         }
     }
 
+    private static final int MAX_HEADER_LINE_BYTES = 8192;
+
     private static String readHeaderLine(java.io.InputStream in) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         int b;
@@ -199,6 +201,9 @@ public final class SystemGatewayServer {
             }
             if (b == '\n') {
                 break;
+            }
+            if (baos.size() >= MAX_HEADER_LINE_BYTES) {
+                throw new IOException("HTTP header line exceeded limit of " + MAX_HEADER_LINE_BYTES + " bytes");
             }
             baos.write(b);
         }

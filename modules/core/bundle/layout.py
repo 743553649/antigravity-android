@@ -4,7 +4,7 @@ layout.py - Layout specifications and directory structure for runtime assets.
 """
 import os
 
-SUBDIRS = ("bin", "lib", "certs", "seed")
+SUBDIRS = ("bin", "lib", "certs", "seed", "etc")
 
 def create_layout(base_out_dir: str) -> dict:
     paths = {}

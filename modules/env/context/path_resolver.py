@@ -48,5 +48,5 @@ def resolve_subpath(key: str, rel_path: str, custom_spec: Optional[str] = None, 
     paths = load_paths(custom_spec=custom_spec, app_id=app_id)
     if key not in paths:
         raise KeyError(f"Unknown path key: '{key}'. Available: {list(paths.keys())}")
-    return os.path.join(paths[key], rel_path)
+    return os.path.join(paths[key], rel_path.lstrip("/"))
 

@@ -35,5 +35,21 @@ class TestBridge(unittest.TestCase):
         self.assertEqual(res["packet"]["command"], "wakelock")
         self.assertEqual(res["packet"]["payload"]["action"], "acquire")
 
+    def test_04_commands_type_hints(self):
+        import typing
+        hints = typing.get_type_hints(commands.notify)
+        self.assertIn("title", hints)
+        self.assertIn("return", hints)
+
+    def test_05_commands_methods_callable(self):
+        # All command methods should construct valid packets
+        self.assertTrue(callable(commands.notify))
+        self.assertTrue(callable(commands.cancel_notify))
+        self.assertTrue(callable(commands.open_url))
+        self.assertTrue(callable(commands.wakelock))
+        self.assertTrue(callable(commands.clipboard_set))
+        self.assertTrue(callable(commands.clipboard_get))
+        self.assertTrue(callable(commands.system_info))
+
 if __name__ == "__main__":
     unittest.main()

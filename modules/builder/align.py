@@ -29,20 +29,25 @@ def align_with_python(in_apk, out_apk, alignment=4):
     """
     Pure Python 4-byte zip alignment according to Android ZIP alignment specification.
     Uncompressed entries (method == 0) are padded so their data starts on a multiple of alignment.
+    Raw payload bytes are copied directly without decompressing, ensuring data integrity.
     """
-    with zipfile.ZipFile(in_apk, "r") as zin:
-        entries = []
-        for info in zin.infolist():
-            data = zin.read(info.filename)
-            entries.append((info, data))
-
-    with open(out_apk, "wb") as fout:
+    with zipfile.ZipFile(in_apk, "r") as zin, open(in_apk, "rb") as fin, open(out_apk, "wb") as fout:
         central_dirs = []
 
-        for info, data in entries:
+        for info in zin.infolist():
+            # Seek to local file header
+            fin.seek(info.header_offset)
+            hdr = fin.read(30)
+            if len(hdr) < 30:
+                raise ValueError(f"Corrupt local header at offset {info.header_offset}")
+            sig, ver, flag, method, time, date, crc, csize, usize, nlen, elen = struct.unpack("<IHHHHHIIIHH", hdr)
+
+            # Seek to start of raw payload
+            fin.seek(info.header_offset + 30 + nlen + elen)
+
             # Android SO alignment: 4096 bytes for .so, 4 bytes for others
             entry_align = 4096 if (info.filename.endswith(".so") and info.compress_type == 0) else alignment
-            
+
             local_header_offset = fout.tell()
             filename_bytes = info.filename.encode("utf-8")
             extra = bytearray(info.extra or b"")
@@ -79,7 +84,15 @@ def align_with_python(in_apk, out_apk, alignment=4):
             fout.write(header)
             fout.write(filename_bytes)
             fout.write(extra)
-            fout.write(data)
+
+            # Copy raw compressed/uncompressed payload in 64KB chunks
+            bytes_left = csize
+            while bytes_left > 0:
+                chunk = fin.read(min(bytes_left, 65536))
+                if not chunk:
+                    raise IOError(f"Unexpected EOF while reading {info.filename}")
+                fout.write(chunk)
+                bytes_left -= len(chunk)
 
             # Record central directory entry info
             central_dirs.append((info, filename_bytes, bytes(extra), local_header_offset))

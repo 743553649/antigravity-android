@@ -29,5 +29,12 @@ class TestDiagnostics(unittest.TestCase):
         self.assertIn("available", res)
         self.assertEqual(res["port"], 59123)
 
+    def test_03_preflight_default_root(self):
+        # Preflight without explicit app_root should resolve dynamically
+        res = preflight.run_preflight(min_mb_free=1)
+        self.assertIn("arch", res)
+        self.assertIn("app_root", res)
+        self.assertTrue(res["app_root"].startswith("/"))
+
 if __name__ == "__main__":
     unittest.main()

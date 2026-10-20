@@ -37,26 +37,43 @@ def pack_binaries(core_bin_path: str, loader_path: str, shims_dir: str, dest_bin
     installed.append("ld-linux-aarch64.so.1")
 
     # 3. Shims
-    # Browser shims
+    # Install xdg-open first from system or browser shims
+    xdg_src = os.path.join(shims_dir, "system", "xdg_open.sh")
+    if not os.path.isfile(xdg_src):
+        xdg_src = os.path.join(shims_dir, "browser", "xdg_open.sh")
+    if os.path.isfile(xdg_src):
+        dst_xdg = os.path.join(dest_bin_dir, "xdg-open")
+        shutil.copyfile(xdg_src, dst_xdg)
+        make_exec(dst_xdg)
+        installed.append("xdg-open")
+
+    # Browser shims (symlinks to xdg-open with fallback to compact delegate script)
     browser_dir = os.path.join(shims_dir, "browser")
     if os.path.isdir(browser_dir):
-        mapping = {
-            "xdg_open.sh": "xdg-open",
-            "chrome.sh": "chrome",
-            "chromium.sh": "chromium",
-            "gnome_open.sh": "gnome-open",
-            "google_chrome.sh": "google-chrome",
-            "open.sh": "open",
-            "sensible_browser.sh": "sensible-browser",
-            "x_www_browser.sh": "x-www-browser",
-        }
-        for src_name, dst_name in mapping.items():
-            src_f = os.path.join(browser_dir, src_name)
-            if os.path.isfile(src_f):
-                dst_f = os.path.join(dest_bin_dir, dst_name)
-                shutil.copyfile(src_f, dst_f)
+        browser_delegates = [
+            ("chrome.sh", "chrome"),
+            ("chromium.sh", "chromium"),
+            ("gnome_open.sh", "gnome-open"),
+            ("google_chrome.sh", "google-chrome"),
+            ("open.sh", "open"),
+            ("sensible_browser.sh", "sensible-browser"),
+            ("x_www_browser.sh", "x-www-browser"),
+        ]
+        for src_name, dst_name in browser_delegates:
+            dst_f = os.path.join(dest_bin_dir, dst_name)
+            try:
+                if os.path.lexists(dst_f):
+                    os.unlink(dst_f)
+                os.symlink("xdg-open", dst_f)
+            except OSError:
+                src_f = os.path.join(browser_dir, src_name)
+                if os.path.isfile(src_f):
+                    shutil.copyfile(src_f, dst_f)
+                else:
+                    with open(dst_f, "w", encoding="utf-8") as f:
+                        f.write('#!/system/bin/sh\nexec "$(dirname "$0")/xdg-open" "$@"\n')
                 make_exec(dst_f)
-                installed.append(dst_name)
+            installed.append(dst_name)
 
     # System shims
     sys_dir = os.path.join(shims_dir, "system")
@@ -64,8 +81,13 @@ def pack_binaries(core_bin_path: str, loader_path: str, shims_dir: str, dest_bin
         src_open_helper = os.path.join(sys_dir, "open_helper.sh")
         if os.path.isfile(src_open_helper):
             dst_f = os.path.join(dest_bin_dir, "open_helper")
-            shutil.copyfile(src_open_helper, dst_f)
-            make_exec(dst_f)
+            try:
+                if os.path.lexists(dst_f):
+                    os.unlink(dst_f)
+                os.symlink("xdg-open", dst_f)
+            except OSError:
+                shutil.copyfile(src_open_helper, dst_f)
+                make_exec(dst_f)
             installed.append("open_helper")
 
     # Privilege shims

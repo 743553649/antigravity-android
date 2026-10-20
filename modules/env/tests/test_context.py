@@ -79,6 +79,17 @@ class TestContext(unittest.TestCase):
         self.assertEqual(env["HOME"], "/data/user/0/com.agy.custom/files")
         self.assertEqual(env["AGY_APPLICATION_ID"], "com.agy.custom")
 
+    def test_08_prefix_and_git_config(self):
+        env = env_builder.build_process_env(app_id="com.agy")
+        self.assertEqual(env["PREFIX"], "/data/user/0/com.agy/files/usr")
+        self.assertEqual(env["GIT_CONFIG_NOSYSTEM"], "1")
+
+    def test_09_resolve_subpath_leading_slash(self):
+        sub1 = path_resolver.resolve_subpath("runtime", "bin/test", app_id="com.agy")
+        sub2 = path_resolver.resolve_subpath("runtime", "/bin/test", app_id="com.agy")
+        self.assertEqual(sub1, sub2)
+        self.assertEqual(sub2, "/data/user/0/com.agy/files/runtime/bin/test")
+
 if __name__ == "__main__":
     unittest.main()
 

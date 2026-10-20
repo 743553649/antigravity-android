@@ -19,7 +19,9 @@ def build_process_env(custom_spec_dir: str = None, extra_env: Dict[str, str] = N
     env = dict(spec.get("static", {}))
     app_root = paths["app_root"]
     env["HOME"] = app_root
+    env["PREFIX"] = paths.get("prefix", os.path.join(app_root, "usr"))
     env["TMPDIR"] = paths["cache"]
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
     pkg_id = app_id or path_resolver.get_application_id()
     env["AGY_APPLICATION_ID"] = pkg_id
 

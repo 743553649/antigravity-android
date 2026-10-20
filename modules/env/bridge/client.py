@@ -10,10 +10,26 @@ from typing import Dict, Any
 def resolve_gateway_url() -> str:
     if "AGY_GATEWAY_URL" in os.environ:
         return os.environ["AGY_GATEWAY_URL"]
-    for pfile in [
+
+    candidates = []
+    home = os.environ.get("HOME")
+    if home:
+        candidates.append(os.path.join(home, "logs", "gateway.port"))
+
+    try:
+        from ..context import path_resolver
+        app_root = path_resolver.load_paths().get("app_root")
+        if app_root:
+            candidates.append(os.path.join(app_root, "logs", "gateway.port"))
+    except Exception:
+        pass
+
+    candidates.extend([
         "/data/user/0/com.agy.dev/files/logs/gateway.port",
         "/data/user/0/com.agy/files/logs/gateway.port"
-    ]:
+    ])
+
+    for pfile in candidates:
         if os.path.isfile(pfile):
             try:
                 with open(pfile, "r") as f:
@@ -22,7 +38,13 @@ def resolve_gateway_url() -> str:
                         return f"http://127.0.0.1:{p}/gateway"
             except Exception:
                 pass
-    return "http://127.0.0.1:45161/gateway" if os.environ.get("DEV_MODE") == "1" else "http://127.0.0.1:45160/gateway"
+
+    is_dev = (
+        os.environ.get("DEV_MODE") == "1"
+        or os.environ.get("AGY_APPLICATION_ID") == "com.agy.dev"
+        or "com.agy.dev" in (os.environ.get("HOME") or "")
+    )
+    return "http://127.0.0.1:45161/gateway" if is_dev else "http://127.0.0.1:45160/gateway"
 
 DEFAULT_GATEWAY_URL = resolve_gateway_url()
 
