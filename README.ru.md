@@ -57,38 +57,6 @@
 
 ---
 
-### Демонстрация возможностей
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/workspace_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/workspace_light.png">
-    <img alt="Рабочее пространство" src="docs/assets/workspace_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings_desktop_mode_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/settings_desktop_mode_light.png">
-    <img alt="Переключатель Desktop Mode" src="docs/assets/settings_desktop_mode_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
-</p>
-<p align="center"><sub>Слева: Рабочее пространство на смартфоне &bull; Справа: Переключатель Desktop Mode</sub></p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_exec_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_exec_light.png">
-    <img alt="Выполнение команд" src="docs/assets/demo_exec_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
-    <img alt="Бенчмарк UFS" src="docs/assets/demo_benchmark_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
-</p>
-<p align="center"><sub>Слева: Агент выполняет команды в шелле &bull; Справа: Нативный бенчмарк памяти UFS (>1200 МБ/с)</sub></p>
-
----
-
 ### Быстрый старт
 
 1. **Скачайте APK** со страницы [Releases](https://github.com/werdio325-png/antigravity-android/releases):

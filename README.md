@@ -57,38 +57,6 @@ No PRoot, chroot, or virtualization overhead. Antigravity runs **bare-metal insi
 
 ---
 
-### Showcase
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/workspace_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/workspace_light.png">
-    <img alt="Workspace" src="docs/assets/workspace_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings_desktop_mode_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/settings_desktop_mode_light.png">
-    <img alt="Desktop Mode" src="docs/assets/settings_desktop_mode_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
-</p>
-<p align="center"><sub>Left: Mobile Workspace &bull; Right: Desktop Mode Appearance Toggle</sub></p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_exec_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_exec_light.png">
-    <img alt="Terminal Execution" src="docs/assets/demo_exec_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/demo_benchmark_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/demo_benchmark_light.png">
-    <img alt="Benchmark" src="docs/assets/demo_benchmark_dark.png" width="49%" style="border-radius: 10px; border: 1px solid rgba(128,128,128,0.2);" />
-  </picture>
-</p>
-<p align="center"><sub>Left: Agent Driving Shell Tools &bull; Right: Native UFS Storage Benchmark (>1200 MB/s)</sub></p>
-
----
-
 ### Quick Start
 
 1. **Download APK** from [Releases](https://github.com/werdio325-png/antigravity-android/releases):
