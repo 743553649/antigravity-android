@@ -58,5 +58,15 @@ class TestFullPipeline(unittest.TestCase):
         ok = pipeline.run_pipeline(self.staged_bin, dry_run=True, allow_missing=False)
         self.assertTrue(ok)
 
+    def test_04_pipeline_skip_gates(self):
+        # When skip_gates=True, cli_gate and enterprise_auth are skipped
+        target = os.path.join(self.tmp_dir, "ls_no_gates")
+        extractor.extract_core(self.archive_path, target)
+        ok = pipeline.run_pipeline(target, skip_gates=True, allow_missing=False)
+        self.assertTrue(ok)
+        with open(target, "rb") as f:
+            sha = pipeline.sha256_bytes(f.read())
+        self.assertEqual(sha, "401c73945b2fca57bd1620ca792ed8952eb704c406d1314f4d307e736f5a5a22")
+
 if __name__ == "__main__":
     unittest.main()

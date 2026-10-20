@@ -92,9 +92,13 @@ jobs:
             export AGY_HOME="$PWD/vendor"
           fi
 
-      - name: Build Standard Release APK (dist/agy.apk)
+      - name: Build Standard Release APK with Bypass (dist/agy.apk)
         run: |
           bash build.sh
+
+      - name: Build Release APK without Bypass (dist/agy-nobypass.apk)
+        run: |
+          bash build.sh --no-bypass
 
       - name: Build Dev Edition APK (dist/agy-dev.apk)
         run: |
@@ -103,7 +107,7 @@ jobs:
       - name: Compute Cryptographic Checksums
         run: |
           cd dist
-          sha256sum agy.apk agy-dev.apk > SHA256SUMS.txt
+          sha256sum agy.apk agy-nobypass.apk agy-dev.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Upload Build Artifacts
@@ -112,6 +116,7 @@ jobs:
           name: antigravity-binaries
           path: |
             dist/agy.apk
+            dist/agy-nobypass.apk
             dist/agy-dev.apk
             dist/SHA256SUMS.txt
 
@@ -126,6 +131,7 @@ jobs:
           make_latest: true
           files: |
             dist/agy.apk
+            dist/agy-nobypass.apk
             dist/agy-dev.apk
             dist/SHA256SUMS.txt
           body: |
@@ -140,7 +146,8 @@ jobs:
 
             | Package | Description |
             | :--- | :--- |
-            | **`agy.apk`** | Standard production release (com.agy, port 45157) |
+            | **`agy.apk`** | Standard release with region bypass (com.agy, port 45157) |
+            | **`agy-nobypass.apk`** | Standard release without bypass (standard gates, com.agy, port 45157) |
             | **`agy-dev.apk`** | Developer debug edition (com.agy.dev, port 45158, debuggable) |
             | **`SHA256SUMS.txt`** | Cryptographic checksums for package integrity verification |
 

@@ -20,21 +20,70 @@ export LC_ALL=C.UTF-8
 
 export FAST_BUILD=0
 export DEV_MODE=0
+export NO_BYPASS="${NO_BYPASS:-0}"
+if [ "${SKIP_GATES:-0}" = "1" ]; then export NO_BYPASS=1; fi
+export CUSTOM_PREFIX=""
+export CUSTOM_OUT=""
 
-for arg in "$@"; do
-    if [ "$arg" = "--fast" ]; then
-        export FAST_BUILD=1
-    elif [ "$arg" = "--dev" ] || [ "$arg" = "-d" ]; then
-        export DEV_MODE=1
-    fi
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --fast)
+            export FAST_BUILD=1
+            shift
+            ;;
+        --dev|-d)
+            export DEV_MODE=1
+            shift
+            ;;
+        --no-bypass|--nobypass|--no-region-bypass|--skip-gates|--no-gates|--standard)
+            export NO_BYPASS=1
+            shift
+            ;;
+        --bypass|--region-bypass)
+            export NO_BYPASS=0
+            shift
+            ;;
+        --prefix)
+            export CUSTOM_PREFIX="$2"
+            shift 2
+            ;;
+        --out|-o)
+            export CUSTOM_OUT="$2"
+            shift 2
+            ;;
+        *)
+            echo "[WARNING] Unknown argument: $1" >&2
+            shift
+            ;;
+    esac
 done
 
-if [ "$DEV_MODE" = "1" ]; then
-    OUT_APK="$DIST_DIR/agy-dev.apk"
-    EDITION_LABEL="DEV EDITION (com.agy.dev, port 45158, debuggable)"
+if [ -n "$CUSTOM_OUT" ]; then
+    OUT_APK="$CUSTOM_OUT"
+    EDITION_LABEL="CUSTOM OUTPUT ($OUT_APK)"
+elif [ -n "$CUSTOM_PREFIX" ]; then
+    if [ "$DEV_MODE" = "1" ]; then
+        OUT_APK="$DIST_DIR/${CUSTOM_PREFIX}-dev.apk"
+    else
+        OUT_APK="$DIST_DIR/${CUSTOM_PREFIX}.apk"
+    fi
+    EDITION_LABEL="CUSTOM PREFIX ($OUT_APK)"
+elif [ "$DEV_MODE" = "1" ]; then
+    if [ "$NO_BYPASS" = "1" ]; then
+        OUT_APK="$DIST_DIR/agy-dev-nobypass.apk"
+        EDITION_LABEL="DEV EDITION WITHOUT BYPASS (com.agy.dev, port 45158, standard gates)"
+    else
+        OUT_APK="$DIST_DIR/agy-dev.apk"
+        EDITION_LABEL="DEV EDITION (com.agy.dev, port 45158, debuggable, with bypass)"
+    fi
 else
-    OUT_APK="$DIST_DIR/agy.apk"
-    EDITION_LABEL="RELEASE EDITION (com.agy, port 45157)"
+    if [ "$NO_BYPASS" = "1" ]; then
+        OUT_APK="$DIST_DIR/agy-nobypass.apk"
+        EDITION_LABEL="RELEASE EDITION WITHOUT BYPASS (com.agy, port 45157, standard gates)"
+    else
+        OUT_APK="$DIST_DIR/agy.apk"
+        EDITION_LABEL="RELEASE EDITION (com.agy, port 45157, with bypass)"
+    fi
 fi
 
 echo "============================================================"
@@ -79,7 +128,11 @@ bash "$SCRIPT_DIR/04_dex.sh" "$BUILD_DIR/dex" "$BUILD_DIR/obj" "$TOOLS_DIR/r8.ja
 
 # Phase 05: Stage Assets
 echo -e "\n>>> [5/8] Staging Runtime and Web Assets..."
-python3 "$SCRIPT_DIR/05_stage_assets.py" "$BUILD_DIR/staging"
+STAGE_FLAGS=()
+if [ "$NO_BYPASS" = "1" ]; then
+    STAGE_FLAGS+=(--no-bypass)
+fi
+python3 "$SCRIPT_DIR/05_stage_assets.py" "$BUILD_DIR/staging" "${STAGE_FLAGS[@]}"
 
 # Phase 06: Package Unaligned APK
 echo -e "\n>>> [6/8] Packaging Unaligned APK..."

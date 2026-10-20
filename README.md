@@ -60,7 +60,8 @@ No PRoot, chroot, or virtualization overhead. Antigravity runs **bare-metal insi
 ### Quick Start
 
 1. **Download APK** from [Releases](https://github.com/werdio325-png/antigravity-android/releases):
-   * `agy.apk` — standard production release.
+   * `agy.apk` — standard release (with region bypass).
+   * `agy-nobypass.apk` — standard release without bypass (standard gates).
    * `agy-dev.apk` — developer debug edition.
 2. **Grant Storage Permission** (`All Files Access`). *(Optional: enable Shizuku for ADB access)*.
 3. **Install Runtimes** via terminal or agent:
@@ -73,8 +74,11 @@ No PRoot, chroot, or virtualization overhead. Antigravity runs **bare-metal insi
 ### Building & Testing
 
 ```bash
-# Build release APK (dist/agy.apk):
+# Build release APK with bypass (dist/agy.apk):
 bash build.sh
+
+# Build release APK without bypass (dist/agy-nobypass.apk):
+bash build.sh --no-bypass
 
 # Build developer debug APK (dist/agy-dev.apk):
 bash build.sh --dev

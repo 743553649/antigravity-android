@@ -40,7 +40,9 @@ def sha256_bytes(b: bytes) -> str:
     h.update(b)
     return h.hexdigest().lower()
 
-def run_pipeline(target_path: str, verify: bool = False, dry_run: bool = False, allow_missing: bool = False, manifest_path: str = None) -> bool:
+def run_pipeline(target_path: str, verify: bool = False, dry_run: bool = False, allow_missing: bool = False, manifest_path: str = None, skip_gates: bool = False) -> bool:
+    skip_gates = skip_gates or (os.environ.get("NO_BYPASS") == "1") or (os.environ.get("SKIP_GATES") == "1")
+
     if not os.path.isfile(target_path):
         print(f"[FATAL] Target binary not found: {target_path}", file=sys.stderr)
         return False
@@ -50,16 +52,22 @@ def run_pipeline(target_path: str, verify: bool = False, dry_run: bool = False, 
 
     sha_init = sha256_bytes(orig_bytes)
     data = bytearray(orig_bytes)
-    mode = {"verify": verify, "dry_run": dry_run, "allow_missing": allow_missing}
+    mode = {"verify": verify, "dry_run": dry_run, "allow_missing": allow_missing, "skip_gates": skip_gates}
 
     print(f"[*] Core target: {target_path} ({len(data):,} bytes)")
     print(f"[*] Initial SHA-256: {sha_init}")
+    if skip_gates:
+        print("[*] Gate bypass disabled (--no-bypass/--skip-gates): skipping cli_gate & enterprise_auth")
 
     group_results = []
     overall_ok = True
 
     for mod in ACTIVE_MODULES:
         mod_name = mod.__name__
+        if skip_gates and mod_name in ("cli_gate", "enterprise_auth"):
+            print(f"  [SKIP] {mod_name:<20}: bypass disabled")
+            group_results.append({"name": mod_name, "status": "skipped_no_bypass"})
+            continue
         ok, info = mod.apply(data, verify=verify, dry_run=dry_run, allow_missing=allow_missing)
         group_results.append(info)
         status = info.get("status", "unknown")
@@ -105,9 +113,10 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Compute patches without writing")
     parser.add_argument("--allow-missing", action="store_true", help="Tolerate missing signatures")
     parser.add_argument("--manifest", help="Optional path to output manifest JSON report")
+    parser.add_argument("--skip-gates", "--no-bypass", "--no-gates", action="store_true", dest="skip_gates", help="Disable region and auth gates bypass")
 
     args = parser.parse_args()
-    ok = run_pipeline(args.target, verify=args.verify, dry_run=args.dry_run, allow_missing=args.allow_missing, manifest_path=args.manifest)
+    ok = run_pipeline(args.target, verify=args.verify, dry_run=args.dry_run, allow_missing=args.allow_missing, manifest_path=args.manifest, skip_gates=args.skip_gates)
     sys.exit(0 if ok else 1)
 
 if __name__ == "__main__":

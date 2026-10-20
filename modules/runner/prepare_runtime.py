@@ -19,11 +19,15 @@ import assemble
 import manifest_verifier
 import pipeline
 
+TARGET_SHA_FULL = "1d9750dd874faf2db976756dbb3476e72c2b29779793331f324151d0cb940bb7"
+TARGET_SHA_NO_BYPASS = "401c73945b2fca57bd1620ca792ed8952eb704c406d1314f4d307e736f5a5a22"
 DEFAULT_DEST = "/data/user/0/com.agy/files/standalone_runtime"
 
-def prepare(dest_runtime_dir: str = DEFAULT_DEST) -> bool:
+def prepare(dest_runtime_dir: str = DEFAULT_DEST, no_bypass: bool = False) -> bool:
+    no_bypass = no_bypass or (os.environ.get("NO_BYPASS") == "1") or (os.environ.get("SKIP_GATES") == "1")
+
     print("=" * 60)
-    print("  PREPARING NEW MODULAR RUNTIME")
+    print(f"  PREPARING NEW MODULAR RUNTIME {'[NO BYPASS]' if no_bypass else '[WITH BYPASS]'}")
     print("=" * 60)
 
     dest_runtime_dir = os.path.abspath(dest_runtime_dir)
@@ -34,8 +38,9 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST) -> bool:
     app_base = "/data/user/0/com.agy.dev" if os.path.exists("/data/user/0/com.agy.dev") and os.access("/data/user/0/com.agy.dev", os.W_OK) else "/data/user/0/com.agy"
     cache_dir = os.environ.get("AGY_CACHE_DIR", os.path.join(app_base, "cache") if os.access(app_base, os.W_OK) else os.path.join(tempfile.gettempdir(), "agy_cache"))
     os.makedirs(cache_dir, exist_ok=True)
-    TARGET_SHA = "1d9750dd874faf2db976756dbb3476e72c2b29779793331f324151d0cb940bb7"
-    cached_patched = os.path.join(cache_dir, f"language_server_patched_{TARGET_SHA[:8]}")
+    target_sha = TARGET_SHA_NO_BYPASS if no_bypass else TARGET_SHA_FULL
+    cache_tag = f"language_server_patched_{'nobypass_' if no_bypass else ''}{target_sha[:8]}"
+    cached_patched = os.path.join(cache_dir, cache_tag)
 
     try:
         staged_bin = os.path.join(tmp_dir, "language_server")
@@ -46,12 +51,12 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST) -> bool:
             with open(cached_patched, "rb") as f:
                 while chunk := f.read(65536):
                     hasher.update(chunk)
-            if hasher.hexdigest() == TARGET_SHA:
+            if hasher.hexdigest() == target_sha:
                 cache_valid = True
-                print(f"\n[1-2/4] Reusing cached patched core (SHA-256 verified: {TARGET_SHA[:8]}...)...")
+                print(f"\n[1-2/4] Reusing cached patched core (SHA-256 verified: {target_sha[:8]}...)...")
                 shutil.copyfile(cached_patched, staged_bin)
             else:
-                print(f"\n[!] Cached core SHA mismatch ({hasher.hexdigest()[:8]} != {TARGET_SHA[:8]}); re-patching...")
+                print(f"\n[!] Cached core SHA mismatch ({hasher.hexdigest()[:8]} != {target_sha[:8]}); re-patching...")
 
         if not cache_valid:
             # 1. Extract pristine core to temporary staging area
@@ -59,9 +64,9 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST) -> bool:
             extractor.extract_core(archive_path, staged_bin)
             print(f"  [OK] Extracted: {os.path.getsize(staged_bin):,} bytes")
 
-            # 2. Apply all patch modules
-            print("\n[2/4] Applying modules/patches pipeline...")
-            ok_patch = pipeline.run_pipeline(staged_bin, dry_run=False, verify=False, allow_missing=True)
+            # 2. Apply patch modules
+            print(f"\n[2/4] Applying modules/patches pipeline (skip_gates={no_bypass})...")
+            ok_patch = pipeline.run_pipeline(staged_bin, dry_run=False, verify=False, allow_missing=True, skip_gates=no_bypass)
             assert ok_patch, "Patch pipeline failed!"
             print("  [OK] Patches applied and verified.")
             try:
@@ -85,7 +90,7 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST) -> bool:
         print("  [OK] Cryptographic manifest verified 100% byte-for-byte.")
 
         print("\n" + "=" * 60)
-        print("  RUNTIME PREPARED AND READY FOR EXECUTION!")
+        print(f"  RUNTIME PREPARED AND READY FOR EXECUTION! {'[NO BYPASS]' if no_bypass else ''}")
         print("=" * 60 + "\n")
         return True
 
@@ -93,8 +98,14 @@ def prepare(dest_runtime_dir: str = DEFAULT_DEST) -> bool:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 def main():
-    dest = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_DEST
-    ok = prepare(dest)
+    dest = DEFAULT_DEST
+    no_bypass = (os.environ.get("NO_BYPASS") == "1") or (os.environ.get("SKIP_GATES") == "1")
+    for arg in sys.argv[1:]:
+        if arg in ("--no-bypass", "--nobypass", "--skip-gates", "--no-gates"):
+            no_bypass = True
+        elif not arg.startswith("-"):
+            dest = arg
+    ok = prepare(dest, no_bypass=no_bypass)
     sys.exit(0 if ok else 1)
 
 if __name__ == "__main__":
