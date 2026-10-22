@@ -32,10 +32,28 @@ public final class CoreEnvironment {
         env.put("PATH", bin.getAbsolutePath()
                 + (inheritedPath == null || inheritedPath.isEmpty() ? "" : ":" + inheritedPath));
         // The core's PTY spawner uses $SHELL (or falls back to /bin/bash, which
-        // does not exist on Android). Point it at the bridge in runtime/bin.
-        env.put("SHELL", new File(bin, "bash").getAbsolutePath());
+        // does not exist on Android). Prefer the prefix bash, then the bridge in
+        // runtime/bin, then Android's own sh.
+        File prefix = new File(files, com.agy.install.EnvPaths.PREFIX_DIR);
+        File prefixBash = new File(prefix, com.agy.install.EnvPaths.BASH_REL);
+        File runtimeBash = new File(bin, "bash");
+        if (prefixBash.isFile() && prefixBash.canExecute()) {
+            env.put("SHELL", prefixBash.getAbsolutePath());
+        } else if (runtimeBash.isFile() && runtimeBash.canExecute()) {
+            env.put("SHELL", runtimeBash.getAbsolutePath());
+        } else {
+            env.put("SHELL", "/system/bin/sh");
+        }
+        // PTY children need a terminal type, and the bootstrap prefix ships the
+        // terminfo database that resolves it.
+        env.put("TERM", "xterm-256color");
+        File terminfo = new File(prefix, "share/terminfo");
+        if (terminfo.isDirectory()) {
+            env.put("TERMINFO", terminfo.getAbsolutePath());
+        }
         env.put("LANG", "C.UTF-8");
         env.put("LC_ALL", "C.UTF-8");
+
         // Pure-Go resolver keeps DNS independent of Android's missing /etc.
         String godebug = env.get("GODEBUG");
         env.put("GODEBUG", godebug == null || godebug.isEmpty()

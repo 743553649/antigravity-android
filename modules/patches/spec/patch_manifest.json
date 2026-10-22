@@ -40,6 +40,12 @@
         "cpu": 1,
         "atomic": 1
       }
+    },
+    {
+      "name": "pty_shell",
+      "description": "Retarget hardcoded PTY shell path: /bin/bash -> /bin///sh to use Android /system/bin/sh",
+      "expected": 1
     }
   ]
 }
+

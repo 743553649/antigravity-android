@@ -17,7 +17,8 @@ sys.path.insert(0, os.path.join(MODULES_ROOT, "core", "unpack"))
 import pipeline
 import extractor
 
-EXPECTED_FINAL_SHA = "1d9750dd874faf2db976756dbb3476e72c2b29779793331f324151d0cb940bb7"
+EXPECTED_FINAL_SHA = "f25135e4b4a2c4a8e4cb319dc36b13eb98fa4718fa80aaae5a7819935370ff27"
+EXPECTED_NO_GATES_SHA = "abf5881f9983fbad00c1cdf903c81f84cf36b8a21364b3476f6d19568b528527"
 
 class TestFullPipeline(unittest.TestCase):
     def setUp(self):
@@ -66,7 +67,7 @@ class TestFullPipeline(unittest.TestCase):
         self.assertTrue(ok)
         with open(target, "rb") as f:
             sha = pipeline.sha256_bytes(f.read())
-        self.assertEqual(sha, "401c73945b2fca57bd1620ca792ed8952eb704c406d1314f4d307e736f5a5a22")
+        self.assertEqual(sha, EXPECTED_NO_GATES_SHA)
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(SCRIPT_DIR, "groups", "syscalls"))
 sys.path.insert(0, os.path.join(SCRIPT_DIR, "groups", "sigill"))
 sys.path.insert(0, os.path.join(SCRIPT_DIR, "groups", "resolv"))
 sys.path.insert(0, os.path.join(SCRIPT_DIR, "groups", "failfast"))
+sys.path.insert(0, os.path.join(SCRIPT_DIR, "groups", "pty_shell"))
 
 import cli_gate
 import enterprise_auth
@@ -23,6 +24,7 @@ import fchmodat
 import sigill_handler
 import resolv_redirect
 import crash_suppressor
+import pty_shell
 import reporter
 
 ACTIVE_MODULES = [
@@ -32,7 +34,8 @@ ACTIVE_MODULES = [
     fchmodat,
     sigill_handler,
     resolv_redirect,
-    crash_suppressor
+    crash_suppressor,
+    pty_shell
 ]
 
 def sha256_bytes(b: bytes) -> str:
