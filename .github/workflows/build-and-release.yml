@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g. v2.4.0)'
+        description: 'Release Tag (e.g. v2.4.1)'
         required: false
-        default: 'v2.4.0'
+        default: 'v2.4.1'
       draft:
         description: 'Create Draft Release'
         type: boolean
@@ -148,6 +148,8 @@ jobs:
 
             ### Key Highlights in this Release
 
+            * **Built-in Web Terminal & PTY Support (PR #19):** Enabled native built-in web terminal on Android userspace via length-preserving PTY shell binary patching (`/bin/bash` -> `/bin///sh`), resilient prioritized shell fallback hierarchy (`$PREFIX/bin/bash` -> `runtime/bin/bash` -> `/system/bin/sh`), and proper `TERM=xterm-256color` / `TERMINFO` environment configuration.
+            * **AAPT Build Reliability:** Fixed `aapt` crash with `SIGABRT (134)` on Android ARM64 userspace builds by ensuring `ANDROID_DATA` environment export.
             * **Security Hardening (Issue #6):** Completely removed hardcoded `android:debuggable="true"` from production builds, preventing unauthorized access to OAuth credentials and internal user files via `run-as`. Dev builds now isolate debuggable flags to `--dev` builds.
             * **Media & File Picker Overhaul (Issue #8):** Replaced SAF-only document picker with universal native Android chooser. Users can now attach photos, videos, and files directly from Gallery, Google Photos, or File Managers with automatic persistent URI permissions.
             * **OAuth & Browser Redirection Streamlined:** Completely eliminated 80ms disk polling and temporary files. Direct stdout capture and clean native browser intent dispatching without AIDL overhead or IPC deadlocks.
