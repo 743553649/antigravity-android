@@ -2,6 +2,8 @@
 # 02_r_java.sh - Generates R.java from Android resources using aapt.
 set -euo pipefail
 
+export ANDROID_DATA="${ANDROID_DATA:-/data}"
+
 GEN_DIR="${1:-$BUILD_DIR/gen}"
 MANIFEST="${2:-$APP_DIR/src/main/AndroidManifest.xml}"
 RES_DIR="${3:-$APP_DIR/src/main/res}"

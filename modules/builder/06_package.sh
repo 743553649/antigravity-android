@@ -2,6 +2,8 @@
 # 06_package.sh - Packages Android resources, assets, and classes.dex into unaligned.apk.
 set -euo pipefail
 
+export ANDROID_DATA="${ANDROID_DATA:-/data}"
+
 UNALIGNED_APK="${1:-$BUILD_DIR/unaligned.apk}"
 MANIFEST="${2:-$APP_DIR/src/main/AndroidManifest.xml}"
 RES_DIR="${3:-$APP_DIR/src/main/res}"
