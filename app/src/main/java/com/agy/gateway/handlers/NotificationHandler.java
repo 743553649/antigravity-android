@@ -30,13 +30,13 @@ public final class NotificationHandler {
     private void initChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager != null) {
             NotificationChannel tasks = new NotificationChannel(
-                    CHANNEL_TASKS, "Antigravity Tasks", NotificationManager.IMPORTANCE_DEFAULT);
-            tasks.setDescription("Notifications for ongoing AI agent and environment tasks");
+                    CHANNEL_TASKS, "Antigravity 任务通知", NotificationManager.IMPORTANCE_DEFAULT);
+            tasks.setDescription("智能体与环境后台运行任务进度通知");
             manager.createNotificationChannel(tasks);
 
             NotificationChannel alerts = new NotificationChannel(
-                    CHANNEL_ALERTS, "Antigravity Alerts", NotificationManager.IMPORTANCE_HIGH);
-            alerts.setDescription("High-priority alerts and task completions");
+                    CHANNEL_ALERTS, "Antigravity 重要提醒", NotificationManager.IMPORTANCE_HIGH);
+            alerts.setDescription("高优先级警报与任务完成提醒");
             manager.createNotificationChannel(alerts);
         }
     }

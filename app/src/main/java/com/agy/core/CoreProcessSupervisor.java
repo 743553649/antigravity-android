@@ -95,7 +95,7 @@ public final class CoreProcessSupervisor {
                     // Ready timeout / launch death is fatal: no blind auto-restart.
                     if (CoreRuntimeState.lastError == null) {
                         CoreRuntimeState.lastError =
-                                "core did not become ready within " + CoreReadyProbe.READY_TIMEOUT_MS + "ms";
+                                "核心服务在 " + (CoreReadyProbe.READY_TIMEOUT_MS / 1000) + " 秒内未就绪";
                         CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                     }
                     destroy(proc);
@@ -121,19 +121,19 @@ public final class CoreProcessSupervisor {
                 String tail = getLastLinesFromLog(appContext.getFilesDir(), 15);
                 if (attempt > CoreRestartPolicy.MAX_RESTARTS) {
                     CoreRuntimeState.restarting = false;
-                    CoreRuntimeState.lastError = "core crashed " + CoreRestartPolicy.MAX_RESTARTS
-                            + " times; giving up (last exit code " + code + ")"
-                            + (tail.isEmpty() ? "" : "\n--- core.log tail ---\n" + tail);
+                    CoreRuntimeState.lastError = "核心服务连续崩溃超过 " + CoreRestartPolicy.MAX_RESTARTS
+                            + " 次，已停止重启 (最后退出码 " + code + ")"
+                            + (tail.isEmpty() ? "" : "\n--- 核心日志摘要 (core.log tail) ---\n" + tail);
                     CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                     com.agy.log.CrashRecorder.recordCrash(appContext, code, System.currentTimeMillis() - readyAt, CoreRuntimeState.lastError, logBuffer);
                     break;
                 }
                 long delay = CoreRestartPolicy.delayFor(attempt);
                 CoreRuntimeState.restarting = true;
-                CoreRuntimeState.lastError = "core exited unexpectedly (code " + code
-                        + "); restarting in " + (delay / 1000) + "s (attempt "
-                        + attempt + "/" + CoreRestartPolicy.MAX_RESTARTS + ")"
-                        + (tail.isEmpty() ? "" : "\n--- core.log tail ---\n" + tail);
+                CoreRuntimeState.lastError = "核心服务异常退出 (退出码 " + code
+                        + ")；将在 " + (delay / 1000) + " 秒后自动重启 (第 "
+                        + attempt + "/" + CoreRestartPolicy.MAX_RESTARTS + " 次尝试)"
+                        + (tail.isEmpty() ? "" : "\n--- 核心日志摘要 (core.log tail) ---\n" + tail);
                 Log.w(TAG, CoreRuntimeState.lastError);
                 CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                 com.agy.log.CrashRecorder.recordCrash(appContext, code, System.currentTimeMillis() - readyAt, CoreRuntimeState.lastError, logBuffer);
@@ -146,7 +146,7 @@ public final class CoreProcessSupervisor {
                 }
                 Log.e(TAG, "core start failed", e);
                 CoreRuntimeState.lastError = ErrorText.describe(e);
-                CoreLogWriter.writeLine(log, "core start failed: " + CoreRuntimeState.lastError);
+                CoreLogWriter.writeLine(log, "核心服务启动失败: " + CoreRuntimeState.lastError);
                 // install/launch failure: fail-closed, user retries from the splash.
                 break;
             } finally {
@@ -167,8 +167,8 @@ public final class CoreProcessSupervisor {
                 int code = ProcessUtils.exitCode(proc);
                 ProcessUtils.sleep(200);
                 String lastLogs = getLastLinesFromLog(appContext.getFilesDir(), 10);
-                CoreRuntimeState.lastError = "core process exited before it became ready (exit code " + code + ")"
-                        + (lastLogs.isEmpty() ? "" : "\n--- core.log tail ---\n" + lastLogs);
+                CoreRuntimeState.lastError = "核心服务进程在就绪前异常退出 (退出码 " + code + ")"
+                        + (lastLogs.isEmpty() ? "" : "\n--- 核心日志摘要 (core.log tail) ---\n" + lastLogs);
                 CoreLogWriter.writeLine(log, CoreRuntimeState.lastError);
                 return false;
             }

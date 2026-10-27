@@ -50,7 +50,8 @@
     } catch (_) {}
 
     try {
-      fetch('http://127.0.0.1:46160/gateway', {
+      var gw = (window.__APP_CONFIG__ && window.__APP_CONFIG__.gatewayPort) || 47160;
+      fetch('http://127.0.0.1:' + gw + '/gateway', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: 'save_custom_models', payload: modelsObj || JSON.parse(jsonStr) })

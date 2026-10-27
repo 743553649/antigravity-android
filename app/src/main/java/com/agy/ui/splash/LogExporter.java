@@ -35,8 +35,8 @@ public final class LogExporter {
 
     public static String collectDiagnostics(Context context) {
         StringBuilder sb = new StringBuilder();
-        sb.append("=== Antigravity Diagnostics ===\n");
-        sb.append("Timestamp: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date())).append("\n");
+        sb.append("=== Antigravity 运行诊断日志 ===\n");
+        sb.append("记录时间: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date())).append("\n");
         String verName = RuntimeConfig.APP_VERSION_NAME;
         long verCode = RuntimeConfig.APP_VERSION_CODE;
         if (context != null) {
@@ -47,26 +47,26 @@ public final class LogExporter {
             } catch (Exception ignored) {
             }
         }
-        sb.append("App Version: ").append(verName).append(" (versionCode ").append(verCode).append(")\n");
-        sb.append("Device: ").append(Build.MANUFACTURER).append(" ").append(Build.MODEL)
+        sb.append("应用版本: ").append(verName).append(" (版本号 ").append(verCode).append(")\n");
+        sb.append("设备型号: ").append(Build.MANUFACTURER).append(" ").append(Build.MODEL)
                 .append(" (").append(Build.DEVICE).append(")\n");
-        sb.append("Android OS: ").append(Build.VERSION.RELEASE)
+        sb.append("系统版本: Android ").append(Build.VERSION.RELEASE)
                 .append(" (API ").append(Build.VERSION.SDK_INT).append(")\n");
-        sb.append("Supported ABIs: ").append(Arrays.toString(Build.SUPPORTED_ABIS)).append("\n");
-        sb.append("Last Error: ").append(CoreRuntimeState.lastError != null
-                ? SensitiveDataRedactor.redactLine(CoreRuntimeState.lastError) : "none").append("\n");
-        sb.append("Server URL: ").append(CoreRuntimeState.serverUrl != null
-                ? SensitiveDataRedactor.safeUrl(CoreRuntimeState.serverUrl) : "none").append("\n");
-        sb.append("\n=== Core Log (files/logs/core.log) ===\n");
+        sb.append("CPU架构: ").append(Arrays.toString(Build.SUPPORTED_ABIS)).append("\n");
+        sb.append("最近错误: ").append(CoreRuntimeState.lastError != null
+                ? SensitiveDataRedactor.redactLine(CoreRuntimeState.lastError) : "无").append("\n");
+        sb.append("服务地址: ").append(CoreRuntimeState.serverUrl != null
+                ? SensitiveDataRedactor.safeUrl(CoreRuntimeState.serverUrl) : "无").append("\n");
+        sb.append("\n=== 核心运行日志 (files/logs/core.log) ===\n");
 
         if (context == null) {
-            sb.append("(context is null; cannot locate log file)\n");
+            sb.append("(无法定位应用文件目录)\n");
             return sb.toString();
         }
 
         File logFile = new File(context.getFilesDir(), "logs/core.log");
         if (!logFile.exists() || logFile.length() == 0) {
-            sb.append("(logs/core.log is empty or does not exist)\n");
+            sb.append("(核心日志文件为空或不存在)\n");
         } else {
             try {
                 long len = logFile.length();
@@ -74,8 +74,8 @@ public final class LogExporter {
                 try (FileInputStream fis = new FileInputStream(logFile)) {
                     if (skipBytes > 0) {
                         long skipped = fis.skip(skipBytes);
-                        sb.append("... [truncated ").append(skipped).append(" bytes; showing last ")
-                                .append(len - skipped).append(" bytes of ").append(len).append(" total] ...\n");
+                        sb.append("... [日志已截断 ").append(skipped).append(" 字节；显示末尾 ")
+                                .append(len - skipped).append(" 字节，共 ").append(len).append(" 字节] ...\n");
                     }
                     try (BufferedReader reader = new BufferedReader(new InputStreamReader(fis, UTF8))) {
                         String line;
@@ -85,7 +85,7 @@ public final class LogExporter {
                     }
                 }
             } catch (Exception e) {
-                sb.append("Error reading log file: ").append(e.getMessage()).append("\n");
+                sb.append("读取日志文件失败: ").append(e.getMessage()).append("\n");
             }
         }
         return sb.toString();
@@ -99,12 +99,12 @@ public final class LogExporter {
             String report = collectDiagnostics(context);
             ClipboardManager cm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
             if (cm != null) {
-                ClipData clip = ClipData.newPlainText("Antigravity Logs", report);
+                ClipData clip = ClipData.newPlainText("Antigravity 运行日志", report);
                 cm.setPrimaryClip(clip);
-                Toast.makeText(context, "Logs copied to clipboard", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "日志已复制到剪贴板", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
-            Toast.makeText(context, "Failed to copy logs: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, "复制日志失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -148,23 +148,23 @@ public final class LogExporter {
             }
 
             if (savedFile != null) {
-                Toast.makeText(context, "Logs saved to " + savedFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                Toast.makeText(context, "日志已保存至: " + savedFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
             } else {
-                Toast.makeText(context, "Could not write logs to Downloads", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "无法将日志写入下载目录", Toast.LENGTH_SHORT).show();
             }
 
             Intent sendIntent = new Intent(Intent.ACTION_SEND);
             sendIntent.setType("text/plain");
-            sendIntent.putExtra(Intent.EXTRA_SUBJECT, "Antigravity Logs");
+            sendIntent.putExtra(Intent.EXTRA_SUBJECT, "Antigravity 运行日志");
             if (report.length() < MAX_LOG_BYTES) {
                 sendIntent.putExtra(Intent.EXTRA_TEXT, report);
             }
             sendIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            Intent chooser = Intent.createChooser(sendIntent, "Share logs");
+            Intent chooser = Intent.createChooser(sendIntent, "分享日志");
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(chooser);
         } catch (Exception e) {
-            Toast.makeText(context, "Failed to export logs: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, "导出日志失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 }

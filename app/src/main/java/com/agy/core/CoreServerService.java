@@ -115,7 +115,7 @@ public final class CoreServerService extends Service {
                 CoreRuntimeState.serverUrl = null;
                 CoreRuntimeState.restarting = false;
                 if (CoreRuntimeState.lastError == null) {
-                    CoreRuntimeState.lastError = "core supervisor stopped unexpectedly";
+                    CoreRuntimeState.lastError = "核心监控服务异常停止";
                 }
                 if (wakeLock != null) {
                     wakeLock.release();

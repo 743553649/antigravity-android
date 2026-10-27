@@ -23,12 +23,12 @@ public final class SplashOverlayHtml {
                                         String foregroundColor, String backgroundColor,
                                         boolean retryable) {
         String safeTitle = escape(title == null ? "Antigravity" : title);
-        String safe = escape(message == null ? "unknown error" : message);
+        String safe = escape(message == null ? "未知错误" : message);
         String button = retryable
                 ? "  <div class=\"btn-group\">\n"
-                + "    <button class=\"btn retry\" onclick=\"agyRetry()\">Retry</button>\n"
-                + "    <button class=\"btn sec\" onclick=\"agyCopyLogs()\">Copy Logs</button>\n"
-                + "    <button class=\"btn sec\" onclick=\"agySaveLogs()\">Save Logs</button>\n"
+                + "    <button class=\"btn retry\" onclick=\"agyRetry()\">重试</button>\n"
+                + "    <button class=\"btn sec\" onclick=\"agyCopyLogs()\">复制日志</button>\n"
+                + "    <button class=\"btn sec\" onclick=\"agySaveLogs()\">保存日志</button>\n"
                 + "  </div>\n"
                 : "";
         return "<!DOCTYPE html>\n"

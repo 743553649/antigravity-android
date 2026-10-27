@@ -80,7 +80,7 @@ public final class SplashController {
         setVisible();
         if (mode != MODE_TRANSIENT) {
             mode = MODE_TRANSIENT;
-            SplashOverlayHtml.show(view, "Restarting Antigravity", message,
+            SplashOverlayHtml.show(view, "正在重启 Antigravity", message,
                     foreground(), background(), false);
         }
     }
@@ -94,7 +94,7 @@ public final class SplashController {
         mode = MODE_ERROR;
         setVisible();
         SplashRetryBridge.bind(view, context, retryListener);
-        SplashOverlayHtml.show(view, "Antigravity failed to start", message,
+        SplashOverlayHtml.show(view, "Antigravity 启动失败", message,
                 foreground(), background(), retryListener != null);
     }
 

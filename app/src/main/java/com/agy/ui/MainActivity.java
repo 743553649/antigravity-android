@@ -125,7 +125,7 @@ public class MainActivity extends Activity
         }
         if (!appLoaded && CoreRuntimeState.serverUrl == null && !splash.isFatalShown()
                 && System.currentTimeMillis() > splashDeadline) {
-            splash.showFatalError("core did not start within " + (SPLASH_TIMEOUT_MS / 1000) + "s");
+            splash.showFatalError("核心服务在 " + (SPLASH_TIMEOUT_MS / 1000) + " 秒内未能成功启动");
         }
     }
 
@@ -172,7 +172,7 @@ public class MainActivity extends Activity
         try {
             CoreServiceLauncher.start(this);
         } catch (Exception e) {
-            showFatalError("cannot start core service: "
+            showFatalError("无法启动核心后台服务: "
                     + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
         }
     }
@@ -369,7 +369,7 @@ public class MainActivity extends Activity
             try {
                 Intent defaultIntent = fileChooserParams.createIntent();
                 if (defaultIntent != null) {
-                    chooserIntent = Intent.createChooser(defaultIntent, "Select Media / Files");
+                    chooserIntent = Intent.createChooser(defaultIntent, "选择媒体 / 文件");
                 }
             } catch (Throwable t) {
                 Log.w(TAG, "fileChooserParams.createIntent failed: " + t.getMessage());
@@ -398,7 +398,7 @@ public class MainActivity extends Activity
                     contentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                 }
             }
-            chooserIntent = Intent.createChooser(contentIntent, "Select Media / Files");
+            chooserIntent = Intent.createChooser(contentIntent, "选择媒体 / 文件");
         }
 
         try {

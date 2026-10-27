@@ -38,6 +38,7 @@ public final class EngineConfigJson {
             o.put("devMode", RuntimeConfig.DEBUG);
             o.put("enginePort", runtime.getHttpsPort());
             o.put("engineBaseUrl", engine.getBaseUrl());
+            o.put("gatewayPort", com.agy.BuildConfig.GATEWAY_PORT);
             o.put("filesDir", appContext.getFilesDir().getAbsolutePath());
             o.put("runtimeDir", runtime.getRuntimeDir().getAbsolutePath());
             o.put("home", appContext.getFilesDir().getAbsolutePath());

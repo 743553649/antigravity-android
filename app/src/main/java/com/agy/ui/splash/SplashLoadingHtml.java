@@ -52,7 +52,7 @@ public final class SplashLoadingHtml {
                 + "</style>\n"
                 + "</head>\n"
                 + "<body>\n"
-                + "  <span style=\"display:inline-flex;align-items:center;gap:2px;height:16px;padding:0 4px;opacity:0.5;\" aria-label=\"Loading\">\n"
+                + "  <span style=\"display:inline-flex;align-items:center;gap:2px;height:16px;padding:0 4px;opacity:0.5;\" aria-label=\"正在加载\">\n"
                 + "    <span class=\"animate-dot-bounce\" style=\"animation-delay:0ms;\"></span>\n"
                 + "    <span class=\"animate-dot-bounce\" style=\"animation-delay:120ms;\"></span>\n"
                 + "    <span class=\"animate-dot-bounce\" style=\"animation-delay:240ms;\"></span>\n"

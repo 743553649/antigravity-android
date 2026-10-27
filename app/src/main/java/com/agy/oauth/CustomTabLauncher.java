@@ -108,7 +108,8 @@ public final class CustomTabLauncher {
         fallback.addCategory(Intent.CATEGORY_BROWSABLE);
         fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
-            Intent chooser = Intent.createChooser(fallback, "Open in browser");
+            // 弹出系统浏览器选择器，提示语汉化为中文
+            Intent chooser = Intent.createChooser(fallback, "使用浏览器打开");
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(chooser);
             Log.i(TAG, "opened chooser for url="

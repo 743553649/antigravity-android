@@ -21,10 +21,10 @@ public final class ForegroundNotification {
                 (NotificationManager) service.getSystemService(Service.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager != null) {
             NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "Core", NotificationManager.IMPORTANCE_LOW);
+                    CHANNEL_ID, "核心服务", NotificationManager.IMPORTANCE_LOW);
             manager.createNotificationChannel(channel);
         }
-        Notification notification = build(service, "Core running");
+        Notification notification = build(service, "核心服务正在后台运行");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             service.startForeground(NOTIFICATION_ID, notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);

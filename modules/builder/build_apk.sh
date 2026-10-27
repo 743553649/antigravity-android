@@ -9,7 +9,9 @@ export DIST_DIR="$PROJECT_ROOT/dist"
 export APP_DIR="$PROJECT_ROOT/app"
 export TOOLS_DIR="$PROJECT_ROOT/tools"
 
-if [ -d "/data/user/0/com.agy.dev/files" ] && [ -w "/data/user/0/com.agy.dev/files" ]; then
+if [ -n "${PREFIX:-}" ] && [ -d "$PREFIX/bin" ]; then
+    export PATH="$PREFIX/bin:$PATH"
+elif [ -d "/data/user/0/com.agy.dev/files" ] && [ -w "/data/user/0/com.agy.dev/files" ]; then
     export HOME="/data/user/0/com.agy.dev/files"
     export PATH="/data/user/0/com.agy.dev/files/usr/bin:$PATH"
 elif [ -d "/data/user/0/com.agy/files" ] && [ -w "/data/user/0/com.agy/files" ]; then
