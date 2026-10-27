@@ -19,6 +19,8 @@ public final class WebViewLifecycle {
         try {
             webView.onResume();
             webView.resumeTimers();
+            webView.invalidate();
+            webView.requestLayout();
             webView.evaluateJavascript(
                     "(function(){ try { window.dispatchEvent(new CustomEvent('agy:host-resume')); } catch(e){} })();",
                     null);

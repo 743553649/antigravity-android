@@ -26,9 +26,9 @@ def patch_main(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # If already patched with v2 modal & shared storage, skip
-    if "agTestConn" in content and "agLocalModels" in content and "agSd" in content:
-        print("[web-patch] main.js already patched with Custom Models and Shared Storage integration.")
+    # If already patched with v2 modal, shared storage, and resume sync, skip
+    if "agTestConn" in content and "agLocalModels" in content and "agSd" in content and "agTrajectoriesRegistry" in content:
+        print("[web-patch] main.js already patched with all customizations.")
         return True
 
     # 1. Unlock custom models gates in Ycc
@@ -338,6 +338,26 @@ def patch_main(file_path):
     if qqc_target in content:
         content = content.replace(qqc_target, qqc_repl, 1)
         print("[web-patch] Pre-populated default workspaces with shared storage")
+
+    # 8. Background Resume Trajectory Stream Sync (vKa)
+    vka_target = 'this._factory=a}'
+    vka_repl = (
+        'this._factory=a;'
+        'this.refreshTrajectories=()=>{try{if(!this._factory)return;'
+        'for(let [c,e]of this.JSC$7869__states.entries()){let f=e;f.link.dispose();f.underlyingProvider.dispose();f.underlyingProvider=this._factory(c);f.link=Hja(f.underlyingProvider,f.provider,{omitInitial:!0});}'
+        '}catch(err){console.warn("[AGY ResumeSync] refreshTrajectories err",err)}};'
+        'window.__agTrajectoriesRegistry=this;'
+        'window.__agRefreshTrajectories=s=>{console.log("[AGY ResumeSync] Refreshing active trajectories triggered by",s);this.refreshTrajectories()}}'
+    )
+    if vka_target in content and "agTrajectoriesRegistry" not in content:
+        content = content.replace(vka_target, vka_repl, 1)
+        print("[web-patch] Exposed window.__agTrajectoriesRegistry & __agRefreshTrajectories in vKa")
+
+    vka_disp_target = 'dispose(){for(let [a]of this.JSC$7869__states.entries())this._disposeEntry(a)}'
+    vka_disp_repl = 'dispose(){if(window.__agTrajectoriesRegistry===this){window.__agTrajectoriesRegistry=void 0;window.__agRefreshTrajectories=void 0}for(let [a]of this.JSC$7869__states.entries())this._disposeEntry(a)}'
+    if vka_disp_target in content:
+        content = content.replace(vka_disp_target, vka_disp_repl, 1)
+        print("[web-patch] Cleaned up global registry on vKa dispose")
 
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)

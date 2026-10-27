@@ -12,5 +12,6 @@ if (!doc) return;
 installTaps(doc);
 installViewport(global, doc);
 installGpu(doc);
+installResumeSync(global);
 
 global.__agWebOptimizations = { installed: true };
