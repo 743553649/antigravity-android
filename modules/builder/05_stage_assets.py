@@ -28,6 +28,14 @@ def stage_assets(staging_dir, no_bypass=False):
     if not ok:
         raise RuntimeError("Failed to prepare and stage runtime assets!")
 
+    proxy_p12 = os.path.join(MODULES_DIR, "core", "certs", "proxy.p12")
+    if os.path.isfile(proxy_p12):
+        shutil.copyfile(proxy_p12, os.path.join(assets_dir, "proxy.p12"))
+        runtime_certs = os.path.join(runtime_dst, "certs")
+        os.makedirs(runtime_certs, exist_ok=True)
+        shutil.copyfile(proxy_p12, os.path.join(runtime_certs, "proxy.p12"))
+        print(f"[OK] Staged proxy.p12 keystore into assets.")
+
     web_src = os.path.join(PROJECT_ROOT, "web")
     if os.path.isdir(web_src):
         web_build_script = os.path.join(web_src, "build.sh")

@@ -35,7 +35,7 @@ public final class ShellBridgeInstaller {
     /** Records which prefix the bulk bridges were generated for. Bump when the
      *  bridge script format changes so a warm launch regenerates them once. */
     private static final String BRIDGE_MARKER = ".agy-bridges";
-    private static final int BRIDGE_FORMAT = 2;
+    private static final int BRIDGE_FORMAT = 3;
 
     private ShellBridgeInstaller() {
     }
@@ -249,11 +249,19 @@ public final class ShellBridgeInstaller {
         sb.append("export GIT_TEMPLATE_DIR=\"$PREFIX/share/git-core/templates\"\n");
         sb.append("export GIT_EXEC_PATH=\"$PREFIX/libexec/git-core\"\n");
         sb.append("export PAGER=\"cat\"\n");
-        sb.append("if [ -x \"$PREFIX/bin/").append(target).append("\" ]; then\n");
-        sb.append("  exec \"$PREFIX/bin/").append(target).append("\" \"$@\"\n");
-        sb.append("else\n");
-        sb.append("  exec /system/bin/sh \"$@\"\n");
-        sb.append("fi\n");
+        if ("bash".equals(target)) {
+            sb.append("if [ -x \"$PREFIX/bin/bash\" ]; then\n");
+            sb.append("  exec \"$PREFIX/bin/bash\" --noprofile \"$@\"\n");
+            sb.append("else\n");
+            sb.append("  exec /system/bin/sh \"$@\"\n");
+            sb.append("fi\n");
+        } else {
+            sb.append("if [ -x \"$PREFIX/bin/").append(target).append("\" ]; then\n");
+            sb.append("  exec \"$PREFIX/bin/").append(target).append("\" \"$@\"\n");
+            sb.append("else\n");
+            sb.append("  exec /system/bin/sh \"$@\"\n");
+            sb.append("fi\n");
+        }
         writeScript(bridge, sb.toString());
     }
 

@@ -1,6 +1,7 @@
 package com.agy.gateway;
 
 import android.content.Context;
+import java.io.File;
 import com.agy.gateway.handlers.*;
 import com.agy.log.CrashRecorder;
 import com.agy.log.LogRingBuffer;
@@ -17,10 +18,12 @@ public final class GatewayDispatcher {
     private final ClipboardHandler clipboardHandler;
     private final DeviceHandler deviceHandler;
     private final LogRingBuffer logBuffer;
+    private final Context context;
     private final com.agy.log.CommandHistory commandHistory;
     private final ExecHandler execHandler;
 
     public GatewayDispatcher(Context context, LogRingBuffer logBuffer) {
+        this.context = context;
         this.notificationHandler = new NotificationHandler(context);
         this.browserHandler = new BrowserHandler(context);
         this.powerHandler = new PowerHandler(context);
@@ -86,7 +89,35 @@ public final class GatewayDispatcher {
                     crashResp.put("ok", true);
                     crashResp.put("crash", latest != null ? latest : JSONObject.NULL);
                 } catch (Exception ignored) {}
-                return crashResp;
+            case "save_custom_models":
+                JSONObject saveResp = new JSONObject();
+                try {
+                    File dir = new File(this.context != null ? this.context.getFilesDir() : new File("/data/user/0/com.agy/files"), ".gemini");
+                    if (!dir.exists()) dir.mkdirs();
+                    File f = new File(dir, "custom_models.json");
+                    com.agy.util.AtomicFileWriter.writeText(f, payload.toString());
+                    saveResp.put("ok", true);
+                } catch (Exception e) {
+                    try { saveResp.put("ok", false); saveResp.put("error", e.getMessage()); } catch (Exception ignored) {}
+                }
+                return saveResp;
+            case "get_custom_models":
+                JSONObject getResp = new JSONObject();
+                try {
+                    File dir = new File(this.context != null ? this.context.getFilesDir() : new File("/data/user/0/com.agy/files"), ".gemini");
+                    File f = new File(dir, "custom_models.json");
+                    if (f.isFile()) {
+                        String s = com.agy.util.IoUtil.readAll(new java.io.FileInputStream(f), "UTF-8");
+                        getResp.put("ok", true);
+                        getResp.put("models", new JSONObject(s));
+                    } else {
+                        getResp.put("ok", true);
+                        getResp.put("models", new JSONObject());
+                    }
+                } catch (Exception e) {
+                    try { getResp.put("ok", false); getResp.put("error", e.getMessage()); } catch (Exception ignored) {}
+                }
+                return getResp;
             default:
                 JSONObject err = new JSONObject();
                 try {

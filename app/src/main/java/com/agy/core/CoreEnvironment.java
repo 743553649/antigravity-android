@@ -28,6 +28,13 @@ public final class CoreEnvironment {
                 + " projectsDir=" + rm.getProjectsDir().getAbsolutePath()
                 + " TMPDIR=" + rm.appContext().getCacheDir().getAbsolutePath());
         env.put("SSL_CERT_FILE", rm.getCertFile().getAbsolutePath());
+        // Route outgoing requests through LocalModelProxyServer for custom model interception
+        env.put("HTTP_PROXY", "http://127.0.0.1:46170");
+        env.put("HTTPS_PROXY", "http://127.0.0.1:46170");
+        env.put("http_proxy", "http://127.0.0.1:46170");
+        env.put("https_proxy", "http://127.0.0.1:46170");
+        env.put("NO_PROXY", "localhost,127.0.0.1,::1");
+        env.put("no_proxy", "localhost,127.0.0.1,::1");
         String inheritedPath = env.get("PATH");
         env.put("PATH", bin.getAbsolutePath()
                 + (inheritedPath == null || inheritedPath.isEmpty() ? "" : ":" + inheritedPath));
@@ -37,10 +44,10 @@ public final class CoreEnvironment {
         File prefix = new File(files, com.agy.install.EnvPaths.PREFIX_DIR);
         File prefixBash = new File(prefix, com.agy.install.EnvPaths.BASH_REL);
         File runtimeBash = new File(bin, "bash");
-        if (prefixBash.isFile() && prefixBash.canExecute()) {
-            env.put("SHELL", prefixBash.getAbsolutePath());
-        } else if (runtimeBash.isFile() && runtimeBash.canExecute()) {
+        if (runtimeBash.isFile() && runtimeBash.canExecute()) {
             env.put("SHELL", runtimeBash.getAbsolutePath());
+        } else if (prefixBash.isFile() && prefixBash.canExecute()) {
+            env.put("SHELL", prefixBash.getAbsolutePath());
         } else {
             env.put("SHELL", "/system/bin/sh");
         }

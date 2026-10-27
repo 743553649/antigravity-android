@@ -27,16 +27,23 @@ public final class WebViewLifecycle {
         }
     }
 
-    /** Pauses page callbacks and timers while the host activity is not visible. */
+    /**
+     * Called when host activity moves to background.
+     * We deliberately do NOT call webView.pauseTimers() or webView.onPause()
+     * so that JavaScript execution, network requests, streaming SSE, and AI agent
+     * tasks continue running smoothly in the background when the user switches apps
+     * or turns off the screen.
+     */
     public static void pause(WebView webView) {
         if (webView == null) {
             return;
         }
         try {
-            webView.onPause();
-            webView.pauseTimers();
+            webView.evaluateJavascript(
+                    "(function(){ try { window.dispatchEvent(new CustomEvent('agy:host-pause')); } catch(e){} })();",
+                    null);
         } catch (Exception e) {
-            Log.w(TAG, "failed to pause webView", e);
+            Log.w(TAG, "failed to notify webView on pause", e);
         }
     }
 

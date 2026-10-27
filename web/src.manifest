@@ -16,6 +16,9 @@ src/boot/custom-elements-guard.js
 bundle iife boot/theme-bootstrap.js
 src/boot/theme-bootstrap.js
 
+bundle iife patches/custom_models_store.js
+src/patches/custom_models_store.js
+
 bundle iife bridge.core.js
 src/core/namespace.js
 src/core/polyfills-process.js

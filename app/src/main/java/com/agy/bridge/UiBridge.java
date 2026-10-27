@@ -2,6 +2,7 @@ package com.agy.bridge;
 
 import android.util.Log;
 
+import java.io.File;
 import java.lang.ref.WeakReference;
 
 import com.agy.ui.MainActivity;
@@ -66,5 +67,33 @@ public final class UiBridge {
                 host.setDesktopMode(enabled);
             }
         });
+    }
+
+    @android.webkit.JavascriptInterface
+    public void saveCustomModels(final String json) {
+        final MainActivity host = this.activityRef != null ? this.activityRef.get() : null;
+        if (host == null || json == null) return;
+        try {
+            File dir = new File(host.getFilesDir(), ".gemini");
+            if (!dir.exists()) dir.mkdirs();
+            File file = new File(dir, "custom_models.json");
+            com.agy.util.AtomicFileWriter.writeText(file, json);
+            Log.i(TAG, "Saved custom models to " + file.getAbsolutePath());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to save custom models: " + e.getMessage());
+        }
+    }
+
+    @android.webkit.JavascriptInterface
+    public String getCustomModels() {
+        final MainActivity host = this.activityRef != null ? this.activityRef.get() : null;
+        if (host == null) return "{}";
+        try {
+            File file = new File(host.getFilesDir(), ".gemini/custom_models.json");
+            if (file.isFile()) {
+                return com.agy.util.IoUtil.readAll(new java.io.FileInputStream(file), "UTF-8");
+            }
+        } catch (Exception ignored) {}
+        return "{}";
     }
 }

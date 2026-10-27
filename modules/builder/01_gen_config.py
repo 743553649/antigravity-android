@@ -56,25 +56,28 @@ def main():
     os.makedirs(pkg_dir, exist_ok=True)
     os.makedirs(res_values_dir, exist_ok=True)
 
-    # 1. BuildConfig.java (always in com.agy package for source compatibility)
-    build_config_path = os.path.join(pkg_dir, "BuildConfig.java")
-    with open(build_config_path, "w", encoding="utf-8") as f:
-        f.write("package %s;\n\n" % pkg_base)
-        f.write("public final class BuildConfig {\n")
-        f.write("    private BuildConfig() {}\n\n")
-        f.write("    public static final String APPLICATION_ID = %s;\n" % java_string(app_id))
-        f.write("    public static final int PORT = %s;\n" % port)
-        f.write("    public static final int PORT_DEV = %s;\n" % port_dev)
-        f.write("    public static final int GATEWAY_PORT = %s;\n" % gw_port)
-        f.write("    public static final String CORE_VERSION = %s;\n" % java_string(core_version))
-        f.write("    public static final String APP_VERSION_NAME = %s;\n" % java_string(app_version_name))
-        f.write("    public static final int APP_VERSION_CODE = %s;\n" % app_version_code)
-        f.write("    public static final String OAUTH_SCHEME = %s;\n" % java_string(oauth_scheme))
-        f.write("    public static final String APP_NAME = %s;\n" % java_string(app_name))
-        f.write("    public static final int MIN_API = %s;\n" % min_api)
-        f.write("    public static final int TARGET_SDK = %s;\n" % target_sdk)
-        f.write("    public static final boolean DEBUG = %s;\n" % is_debug)
-        f.write("}\n")
+    # 1. BuildConfig.java (always provide in com.agy package for source compatibility)
+    compat_pkg_dir = os.path.join(build_dir, "gen", "com", "agy")
+    os.makedirs(compat_pkg_dir, exist_ok=True)
+    for target_dir, p_name in [(pkg_dir, pkg_base), (compat_pkg_dir, "com.agy")]:
+        b_path = os.path.join(target_dir, "BuildConfig.java")
+        with open(b_path, "w", encoding="utf-8") as f:
+            f.write("package %s;\n\n" % p_name)
+            f.write("public final class BuildConfig {\n")
+            f.write("    private BuildConfig() {}\n\n")
+            f.write("    public static final String APPLICATION_ID = %s;\n" % java_string(app_id))
+            f.write("    public static final int PORT = %s;\n" % port)
+            f.write("    public static final int PORT_DEV = %s;\n" % port_dev)
+            f.write("    public static final int GATEWAY_PORT = %s;\n" % gw_port)
+            f.write("    public static final String CORE_VERSION = %s;\n" % java_string(core_version))
+            f.write("    public static final String APP_VERSION_NAME = %s;\n" % java_string(app_version_name))
+            f.write("    public static final int APP_VERSION_CODE = %s;\n" % app_version_code)
+            f.write("    public static final String OAUTH_SCHEME = %s;\n" % java_string(oauth_scheme))
+            f.write("    public static final String APP_NAME = %s;\n" % java_string(app_name))
+            f.write("    public static final int MIN_API = %s;\n" % min_api)
+            f.write("    public static final int TARGET_SDK = %s;\n" % target_sdk)
+            f.write("    public static final boolean DEBUG = %s;\n" % is_debug)
+            f.write("}\n")
 
     # 2. gen.xml
     gen_xml_path = os.path.join(res_values_dir, "gen.xml")
@@ -97,16 +100,18 @@ def main():
     content = re.sub(r'android:versionName="[^"]+"', f'android:versionName="{app_version_name}"', content)
     content = re.sub(r'android:versionCode="[^"]+"', f'android:versionCode="{app_version_code}"', content)
 
+    content = content.replace('package="com.agy"', f'package="{app_id}"')
+    content = content.replace('com.agy.permission.INTERNAL_BROADCAST', f'{app_id}.permission.INTERNAL_BROADCAST')
+    content = content.replace('com.agy.ACTION_TORCH', f'{app_id}.ACTION_TORCH')
+
     if is_dev:
-        content = content.replace('package="com.agy"', 'package="com.agy.dev"')
-        content = content.replace('com.agy.permission.INTERNAL_BROADCAST', 'com.agy.dev.permission.INTERNAL_BROADCAST')
         content = content.replace('<application', '<application android:debuggable="true"')
-        print(f"[*] Configured DEV manifest: package=com.agy.dev, debuggable=true")
+        print(f"[*] Configured DEV manifest: package={app_id}, debuggable=true")
 
     with open(target_manifest, "w", encoding="utf-8") as f:
         f.write(content)
 
-    print(f"[OK] Generated BuildConfig.java -> {build_config_path}")
+    print(f"[OK] Generated BuildConfig.java -> {pkg_dir}")
     print(f"[OK] Generated gen.xml -> {gen_xml_path}")
     print(f"[OK] Generated manifest -> {target_manifest}")
 

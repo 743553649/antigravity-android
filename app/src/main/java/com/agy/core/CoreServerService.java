@@ -27,6 +27,7 @@ public final class CoreServerService extends Service {
     private CoreProcessSupervisor supervisor;
     private com.agy.log.LogRingBuffer logBuffer;
     private com.agy.gateway.SystemGatewayServer gatewayServer;
+    private com.agy.proxy.LocalModelProxyServer proxyServer;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private volatile boolean destroyed;
 
@@ -37,6 +38,8 @@ public final class CoreServerService extends Service {
         logBuffer = new com.agy.log.LogRingBuffer();
         gatewayServer = new com.agy.gateway.SystemGatewayServer(this, logBuffer, com.agy.BuildConfig.GATEWAY_PORT);
         gatewayServer.start();
+        proxyServer = new com.agy.proxy.LocalModelProxyServer(this, 46170);
+        proxyServer.start();
 
         Log.i(TAG, "state paths: HOME=" + getFilesDir().getAbsolutePath()
                 + " appData=" + runtime.getAppDataDir().getAbsolutePath()
@@ -135,6 +138,9 @@ public final class CoreServerService extends Service {
         if (gatewayServer != null) {
             gatewayServer.stop();
         }
+        if (proxyServer != null) {
+            proxyServer.stop();
+        }
         destroyed = true;
         mainHandler.removeCallbacksAndMessages(null);
         // Intentional stop: the watchdog must not treat the exit as a crash.
@@ -159,6 +165,13 @@ public final class CoreServerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         return START_STICKY;
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        Log.i(TAG, "Task removed from recents by user swipe; stopping CoreServerService cleanly...");
+        stopSelf();
     }
 
     @Override

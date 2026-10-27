@@ -20,6 +20,7 @@ import java.security.SecureRandom;
  */
 public final class AndroidBridge {
 
+    private final Context appContext;
     private final UiBridge ui = new UiBridge();
     private final ThemeBridge themeBridge;
     private final EngineBridge engine;
@@ -29,7 +30,7 @@ public final class AndroidBridge {
 
     public AndroidBridge(Context context, RuntimeManager runtime,
                          ShizukuBridge shizuku, ThemeManager theme) {
-        Context appContext = context.getApplicationContext();
+        this.appContext = context.getApplicationContext();
         this.themeBridge = new ThemeBridge(theme);
         this.engine = new EngineBridge(runtime);
         this.config = new EngineConfigJson(appContext, runtime, engine, shizuku, themeBridge);
@@ -96,6 +97,86 @@ public final class AndroidBridge {
     @JavascriptInterface
     public void setDesktopMode(boolean enabled) {
         ui.setDesktopMode(enabled);
+    }
+
+    @JavascriptInterface
+    public void saveCustomModels(String json) {
+        if (json == null) return;
+        try {
+            java.io.File dir = new java.io.File(appContext.getFilesDir(), ".gemini");
+            if (!dir.exists()) dir.mkdirs();
+            java.io.File file = new java.io.File(dir, "custom_models.json");
+            com.agy.util.AtomicFileWriter.writeText(file, json);
+            android.util.Log.i("AndroidBridge", "Saved custom_models.json (" + json.length() + " bytes) to " + file.getAbsolutePath());
+        } catch (Exception e) {
+            android.util.Log.w("AndroidBridge", "Failed to save custom_models.json: " + e.getMessage());
+        }
+    }
+
+    @JavascriptInterface
+    public String getCustomModels() {
+        try {
+            java.io.File file = new java.io.File(appContext.getFilesDir(), ".gemini/custom_models.json");
+            if (file.isFile()) {
+                return com.agy.util.IoUtil.readAll(new java.io.FileInputStream(file), "UTF-8");
+            }
+        } catch (Exception ignored) {}
+        return "{}";
+    }
+
+    @JavascriptInterface
+    public String testCustomModel(String baseUrl, String apiKey, String modelName) {
+        String endpoint = (baseUrl != null ? baseUrl.trim() : "");
+        if (endpoint.isEmpty()) endpoint = "https://aiping.cn/api/v1";
+        while (endpoint.endsWith("/")) endpoint = endpoint.substring(0, endpoint.length() - 1);
+        if (!endpoint.endsWith("/chat/completions")) {
+            endpoint = endpoint + "/chat/completions";
+        }
+        String model = (modelName != null && !modelName.trim().isEmpty()) ? modelName.trim() : "deepseek-chat";
+        String key = (apiKey != null) ? apiKey.trim() : "";
+        try {
+            java.net.URL url = new java.net.URL(endpoint);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(15000);
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            conn.setRequestProperty("User-Agent", "Antigravity-Android/2.4");
+            if (!key.isEmpty()) {
+                conn.setRequestProperty("Authorization", "Bearer " + key);
+            }
+            org.json.JSONObject payload = new org.json.JSONObject();
+            payload.put("model", model);
+            org.json.JSONArray msgs = new org.json.JSONArray();
+            org.json.JSONObject m = new org.json.JSONObject();
+            m.put("role", "user");
+            m.put("content", "hi");
+            msgs.put(m);
+            payload.put("messages", msgs);
+            payload.put("max_tokens", 8);
+            payload.put("stream", false);
+
+            byte[] body = payload.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            try (java.io.OutputStream os = conn.getOutputStream()) {
+                os.write(body);
+                os.flush();
+            }
+            int code = conn.getResponseCode();
+            if (code >= 200 && code < 300) {
+                return "OK:连接成功 (HTTP " + code + ")！端点 [" + endpoint + "] 与模型 [" + model + "] 验证通过。";
+            } else {
+                java.io.InputStream es = conn.getErrorStream();
+                String err = "";
+                if (es != null) {
+                    err = com.agy.util.IoUtil.readAll(es, "UTF-8");
+                }
+                if (err.length() > 240) err = err.substring(0, 240) + "...";
+                return "ERR:HTTP " + code + " (" + endpoint + "): " + err;
+            }
+        } catch (Exception e) {
+            return "ERR:网络或地址异常 (" + endpoint + "): " + e.getMessage();
+        }
     }
 
     // Native-only helpers used while preparing the trusted app document.
