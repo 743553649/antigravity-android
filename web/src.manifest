@@ -60,3 +60,13 @@ src/patches/startup_ready/console-hook.js
 src/patches/startup_ready/detect-ui.js
 src/patches/startup_ready/arm.js
 src/patches/startup_ready/public-api.js
+
+bundle iife patches/dashboard.js
+src/patches/dashboard/01-context.js
+src/patches/dashboard/02-rate-quality.js
+src/patches/dashboard/03-metrics.js
+src/patches/dashboard/04-theme.js
+src/patches/dashboard/05-i18n.js
+src/patches/dashboard/06-usage-ui.js
+src/patches/dashboard/07-host-bridge.js
+src/patches/dashboard/08-inline-widget.js
