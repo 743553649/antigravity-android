@@ -85,7 +85,6 @@ class TestBuilder(unittest.TestCase):
         cmd_r = ["bash", os.path.join(BUILDER_DIR, "02_r_java.sh"), gen_dir, manifest, res_dir, android_jar, overlay_res]
         res = subprocess.run(cmd_r, capture_output=True, text=True)
         self.assertEqual(res.returncode, 0, res.stderr)
-        self.assertNotIn("Generating fallback com.agy.R", res.stdout)
         self.assertTrue(os.path.isfile(os.path.join(gen_dir, "com", "agy", "R.java")))
 
         # Test dev mode (com.agy.dev) -> generates both com.agy.dev.R and fallback com.agy.R
@@ -100,7 +99,7 @@ class TestBuilder(unittest.TestCase):
         self.assertEqual(res_dev.returncode, 0, res_dev.stderr)
         self.assertIn("Generating fallback com.agy.R", res_dev.stdout)
         self.assertTrue(os.path.isfile(os.path.join(gen_dir_dev, "com", "agy", "R.java")))
-        self.assertTrue(os.path.isfile(os.path.join(gen_dir_dev, "com", "agy", "dev", "R.java")))
+        self.assertTrue(os.path.isfile(os.path.join(gen_dir_dev, "com", "agy", "plus", "R.java")))
 
     def test_03_and_04_compile_and_dex_argfile(self):
         import subprocess

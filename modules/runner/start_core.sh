@@ -142,6 +142,17 @@ set -m
 rm -f "$FIFO_FILE"
 mkfifo "$FIFO_FILE"
 
+# 0. Start model_adapter_gateway in background if not already listening on 50999
+GATEWAY_PORT=50999
+GATEWAY_PID_FILE="$RT/standalone.gateway_pid"
+GATEWAY_LOG_FILE="$RT/model_gateway.log"
+if ! is_port_in_use "$GATEWAY_PORT"; then
+    echo "[*] Starting embedded model adapter gateway on port $GATEWAY_PORT..."
+    python3 "$MODULES_DIR/io/interceptors/model_adapter_gateway.py" "$GATEWAY_PORT" > "$GATEWAY_LOG_FILE" 2>&1 &
+    GATEWAY_PID=$!
+    echo "$GATEWAY_PID" > "$GATEWAY_PID_FILE"
+fi
+
 # 1. Start stream_splitter interceptor in background reading from FIFO
 python3 -u "$MODULES_DIR/io/interceptors/stream_splitter.py" < "$FIFO_FILE" > "$LOG_FILE" 2>&1 &
 SPLITTER_PID=$!

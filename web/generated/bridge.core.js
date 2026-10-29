@@ -332,6 +332,35 @@ function installFetchRewrite() {
     return origFetch(resource, init);
   };
   global.__AG_FETCH_REWRITE__ = true;
+
+  // 自动将内核 Cloud Code 路由挂接到本地轻量大模型网关 (DeepSeek / OpenAI / Claude)
+  function configureModelGateway() {
+    try {
+      var gatewayPort = 50999;
+      var targetUrl = 'http://127.0.0.1:' + gatewayPort;
+      var rpcUrl = appendCsrfQuery(coreBase() + '/exa.language_server_pb.LanguageServerService/SetCloudCodeURL');
+      var reqHeaders = new Headers({
+        'Content-Type': 'application/json',
+        'Connect-Protocol-Version': '1'
+      });
+      ensureCsrf(reqHeaders);
+      fetchWithStartupRetry(rpcUrl, {
+        method: 'POST',
+        headers: reqHeaders,
+        body: JSON.stringify({ url: targetUrl })
+      }, 10).then(function (res) {
+        if (res && res.ok) {
+          log('model gateway connected to ' + targetUrl);
+        }
+      }).catch(function (err) {
+        warn('model gateway connect retry ended', err);
+      });
+    } catch (e) {
+      warn('model gateway init', e);
+    }
+  }
+
+  setTimeout(configureModelGateway, 800);
 }
 
 installFetchRewrite();

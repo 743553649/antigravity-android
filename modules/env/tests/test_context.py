@@ -43,9 +43,9 @@ class TestContext(unittest.TestCase):
         os.environ.pop("AGY_APPLICATION_ID", None)
         os.environ.pop("APPLICATION_ID", None)
         os.environ.pop("DEV_MODE", None)
-        self.assertEqual(path_resolver.get_application_id(), "com.agy")
+        self.assertEqual(path_resolver.get_application_id(), "com.agy.plus")
         paths = path_resolver.load_paths()
-        self.assertEqual(paths["app_root"], "/data/user/0/com.agy/files")
+        self.assertEqual(paths["app_root"], "/data/user/0/com.agy.plus/files")
 
     def test_05_dynamic_application_id_env_var(self):
         os.environ["AGY_APPLICATION_ID"] = "com.agy.dev"

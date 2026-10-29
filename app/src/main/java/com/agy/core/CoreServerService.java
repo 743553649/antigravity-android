@@ -27,6 +27,7 @@ public final class CoreServerService extends Service {
     private CoreProcessSupervisor supervisor;
     private com.agy.log.LogRingBuffer logBuffer;
     private com.agy.gateway.SystemGatewayServer gatewayServer;
+    private Process modelGatewayProcess;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private volatile boolean destroyed;
 
@@ -76,14 +77,35 @@ public final class CoreServerService extends Service {
                     pb.environment().put("HOME", getFilesDir().getAbsolutePath());
                     pb.start();
                 }
+
+                // 启动内置轻量大模型适配中转网关 (DeepSeek / OpenAI / Claude)
+                File gatewayBin = new File(getFilesDir(), "usr/bin/model_adapter_gateway.py");
+                if (gatewayBin.canExecute() || gatewayBin.isFile()) {
+                    Log.i(TAG, "Starting embedded model adapter gateway on port 50999...");
+                    File pythonBin = new File(getFilesDir(), "usr/bin/python3");
+                    String pyExec = pythonBin.canExecute() ? pythonBin.getAbsolutePath() : "python3";
+                    ProcessBuilder pbGw = new ProcessBuilder(pyExec, gatewayBin.getAbsolutePath(), "50999");
+                    pbGw.directory(getFilesDir());
+                    pbGw.environment().put("PATH", getFilesDir().getAbsolutePath() + "/usr/bin:" + System.getenv("PATH"));
+                    pbGw.environment().put("HOME", getFilesDir().getAbsolutePath());
+                    pbGw.redirectErrorStream(true);
+                    File gwLog = new File(getFilesDir(), "logs/model_gateway.log");
+                    if (gwLog.getParentFile() != null) gwLog.getParentFile().mkdirs();
+                    pbGw.redirectOutput(ProcessBuilder.Redirect.appendTo(gwLog));
+                    modelGatewayProcess = pbGw.start();
+                }
             } catch (Exception e) {
-                Log.w(TAG, "Failed to start agy-daemon: " + e.getMessage());
+                Log.w(TAG, "Failed to start background daemons: " + e.getMessage());
             }
         }, "AgyDaemonStarter").start();
     }
 
     private void stopBackgroundDaemon() {
         try {
+            if (modelGatewayProcess != null) {
+                Log.i(TAG, "Stopping embedded model adapter gateway...");
+                modelGatewayProcess.destroy();
+            }
             File daemonBin = new File(getFilesDir(), "usr/bin/agy-daemon");
             if (daemonBin.canExecute()) {
                 Log.i(TAG, "Stopping autonomous background daemon...");
@@ -98,7 +120,7 @@ public final class CoreServerService extends Service {
                 }
             }
         } catch (Exception e) {
-            Log.w(TAG, "Failed to stop agy-daemon: " + e.getMessage());
+            Log.w(TAG, "Failed to stop background daemons: " + e.getMessage());
         }
     }
 

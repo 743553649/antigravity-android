@@ -22,9 +22,10 @@ SPLITTER_PID_FILE="$RT/standalone.splitter_pid"
 PGID_FILE="$RT/standalone.pgid"
 META_FILE="$RT/standalone.json"
 FIFO_FILE="$RT/core_stream.fifo"
+GATEWAY_PID_FILE="$RT/standalone.gateway_pid"
 
 cleanup_stale_files() {
-    rm -f "$PID_FILE" "$SPLITTER_PID_FILE" "$PGID_FILE" "$META_FILE" "$FIFO_FILE"
+    rm -f "$PID_FILE" "$SPLITTER_PID_FILE" "$PGID_FILE" "$META_FILE" "$FIFO_FILE" "$GATEWAY_PID_FILE"
 }
 
 PID=""
@@ -91,6 +92,14 @@ kill -15 "$PID" 2>/dev/null || true
 # Terminate stream_splitter interceptor
 if [ -n "$SPLITTER_PID" ] && kill -0 "$SPLITTER_PID" 2>/dev/null; then
     kill -15 "$SPLITTER_PID" 2>/dev/null || true
+fi
+
+# Terminate model adapter gateway if running
+if [ -f "$GATEWAY_PID_FILE" ]; then
+    GW_PID=$(head -n 1 "$GATEWAY_PID_FILE" | tr -d '[:space:]' || true)
+    if [ -n "$GW_PID" ] && kill -0 "$GW_PID" 2>/dev/null; then
+        kill -15 "$GW_PID" 2>/dev/null || true
+    fi
 fi
 
 # Phase 2: Polling loop (checks kill -0 every 0.1s up to 5.0s = 50 iterations)

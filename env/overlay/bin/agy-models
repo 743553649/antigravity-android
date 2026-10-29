@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""
+agy-models - Antigravity 大模型管理命令行工具 (支持 DeepSeek, OpenAI, Claude, 本地模型)
+
+用法示例:
+  agy-models list                     # 列出所有支持的服务商与模型
+  agy-models status                   # 检查本地大模型适配网关健康状态
+  agy-models set-key <服务商> <密钥>   # 设置 API 密钥 (如: agy-models set-key deepseek sk-xxxx)
+  agy-models set-url <服务商> <地址>   # 设置自定义 API 基础地址 (如: agy-models set-url custom http://127.0.0.1:11434/v1)
+  agy-models enable <服务商>          # 启用某个服务商
+  agy-models disable <服务商>         # 禁用某个服务商
+"""
+
+import sys
+import os
+import json
+import urllib.request
+import urllib.error
+
+HOME = os.environ.get("HOME", os.path.expanduser("~"))
+CONFIG_PATH = os.path.join(HOME, ".gemini", "antigravity", "custom_models.json")
+GATEWAY_URL = "http://127.0.0.1:50999"
+
+def load_config():
+    if not os.path.isfile(CONFIG_PATH):
+        print(f"[!] 配置文件尚未创建，请先启动一次网关或运行初始化。")
+        sys.exit(1)
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] 读取配置文件失败: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def save_config(cfg):
+    try:
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
+        print(f"[OK] 配置已成功保存至: {CONFIG_PATH}")
+    except Exception as e:
+        print(f"[ERROR] 保存配置文件失败: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def cmd_list():
+    cfg = load_config()
+    print("\n================== Antigravity 大模型管理 ==================")
+    providers = cfg.get("providers", {})
+    for p_id, p_info in providers.items():
+        status = "🟢 已启用" if p_info.get("enabled", False) else "⚪ 已禁用"
+        has_key = "🔑 已配置 Key" if p_info.get("api_key") else "⚠️ 缺少 Key"
+        print(f"\n[{status}] 服务商: {p_info.get('name', p_id)} (ID: {p_id}) - {has_key}")
+        print(f"  Base URL: {p_info.get('base_url', '')}")
+        print("  支持模型:")
+        for m in p_info.get("models", []):
+            reasoning = " [深度思考R1]" if m.get("reasoning") else ""
+            print(f"    - {m.get('displayName')} (ID: {m.get('id')}){reasoning}: {m.get('description')}")
+    print("\n============================================================\n")
+
+def cmd_status():
+    print(f"[*] 正在探测本地大模型适配网关 ({GATEWAY_URL})...")
+    try:
+        with urllib.request.urlopen(f"{GATEWAY_URL}/health", timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            print("🟢 网关运行正常!")
+            print(f"  服务名称: {data.get('service')}")
+            print(f"  监听端口: {data.get('port')}")
+            print("  当前活跃模型列表:")
+            for m in data.get("active_models", []):
+                print(f"    - {m}")
+    except Exception as e:
+        print(f"🔴 网关未启动或无响应: {e}")
+        print("  提示: 请确保 Antigravity 主服务或模型适配守护进程已运行。")
+
+def cmd_set_key(provider_id, key):
+    cfg = load_config()
+    providers = cfg.get("providers", {})
+    if provider_id not in providers:
+        print(f"[ERROR] 未知服务商: '{provider_id}'。可选服务商: {', '.join(providers.keys())}", file=sys.stderr)
+        sys.exit(1)
+    providers[provider_id]["api_key"] = key.strip()
+    providers[provider_id]["enabled"] = True
+    save_config(cfg)
+    masked_key = key[:6] + "..." + key[-4:] if len(key) > 10 else "***"
+    print(f"[OK] 已为服务商 '{provider_id}' 配置密钥 ({masked_key}) 并自动启用！")
+
+def cmd_set_url(provider_id, url):
+    cfg = load_config()
+    providers = cfg.get("providers", {})
+    if provider_id not in providers:
+        print(f"[ERROR] 未知服务商: '{provider_id}'。可选服务商: {', '.join(providers.keys())}", file=sys.stderr)
+        sys.exit(1)
+    providers[provider_id]["base_url"] = url.strip()
+    save_config(cfg)
+    print(f"[OK] 已将服务商 '{provider_id}' 的 Base URL 更新为: {url.strip()}")
+
+def cmd_toggle(provider_id, enable):
+    cfg = load_config()
+    providers = cfg.get("providers", {})
+    if provider_id not in providers:
+        print(f"[ERROR] 未知服务商: '{provider_id}'", file=sys.stderr)
+        sys.exit(1)
+    providers[provider_id]["enabled"] = enable
+    save_config(cfg)
+    action = "启用" if enable else "禁用"
+    print(f"[OK] 服务商 '{provider_id}' 已{action}！")
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
+        print(__doc__)
+        return
+
+    cmd = sys.argv[1].lower()
+    if cmd == "list":
+        cmd_list()
+    elif cmd == "status":
+        cmd_status()
+    elif cmd == "set-key":
+        if len(sys.argv) < 4:
+            print("[ERROR] 用法: agy-models set-key <服务商ID> <API密钥>", file=sys.stderr)
+            sys.exit(1)
+        cmd_set_key(sys.argv[2], sys.argv[3])
+    elif cmd == "set-url":
+        if len(sys.argv) < 4:
+            print("[ERROR] 用法: agy-models set-url <服务商ID> <接口地址>", file=sys.stderr)
+            sys.exit(1)
+        cmd_set_url(sys.argv[2], sys.argv[3])
+    elif cmd == "enable":
+        if len(sys.argv) < 3:
+            print("[ERROR] 用法: agy-models enable <服务商ID>", file=sys.stderr)
+            sys.exit(1)
+        cmd_toggle(sys.argv[2], True)
+    elif cmd == "disable":
+        if len(sys.argv) < 3:
+            print("[ERROR] 用法: agy-models disable <服务商ID>", file=sys.stderr)
+            sys.exit(1)
+        cmd_toggle(sys.argv[2], False)
+    else:
+        print(f"[ERROR] 未知子命令: '{cmd}'，输入 agy-models --help 查看帮助", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
