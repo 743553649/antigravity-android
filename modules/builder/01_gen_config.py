@@ -37,8 +37,8 @@ def main():
 
     is_dev = os.environ.get("DEV_MODE") == "1"
 
-    pkg_base = env.get("PKG", "com.agy")
-    app_id = env.get("PKG_DEV", "com.agy.dev") if is_dev else pkg_base
+    pkg_base = env.get("PKG", "com.agy.plus")
+    app_id = env.get("PKG_DEV", "com.agy.plus") if is_dev else pkg_base
     port = env.get("PORT_DEV", "45158") if is_dev else env.get("PORT", "45157")
     port_dev = env.get("PORT_DEV", "45158")
     gw_port = env.get("GATEWAY_PORT_DEV", "45161") if is_dev else env.get("GATEWAY_PORT", "45160")
@@ -100,9 +100,11 @@ def main():
     content = re.sub(r'android:versionName="[^"]+"', f'android:versionName="{app_version_name}"', content)
     content = re.sub(r'android:versionCode="[^"]+"', f'android:versionCode="{app_version_code}"', content)
 
-    content = content.replace('package="com.agy"', f'package="{app_id}"')
+    content = re.sub(r'package="[^"]+"', f'package="{app_id}"', content)
     content = content.replace('com.agy.permission.INTERNAL_BROADCAST', f'{app_id}.permission.INTERNAL_BROADCAST')
+    content = content.replace('com.agy.plus.permission.INTERNAL_BROADCAST', f'{app_id}.permission.INTERNAL_BROADCAST')
     content = content.replace('com.agy.ACTION_TORCH', f'{app_id}.ACTION_TORCH')
+    content = content.replace('com.agy.plus.ACTION_TORCH', f'{app_id}.ACTION_TORCH')
 
     if is_dev:
         content = content.replace('<application', '<application android:debuggable="true"')

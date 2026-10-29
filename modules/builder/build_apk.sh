@@ -76,10 +76,10 @@ elif [ "$DEV_MODE" = "1" ]; then
 else
     if [ "$NO_BYPASS" = "0" ]; then
         OUT_APK="$DIST_DIR/${BASE_PREFIX}-region-bypass.apk"
-        EDITION_LABEL="RELEASE EDITION WITH REGION BYPASS (com.agy, port 45157, with account eligibility bypass)"
+        EDITION_LABEL="RELEASE EDITION WITH REGION BYPASS (com.agy.plus, port 45157, with account eligibility bypass)"
     else
         OUT_APK="$DIST_DIR/${BASE_PREFIX}.apk"
-        EDITION_LABEL="RELEASE EDITION STANDARD (com.agy, port 45157, original gates)"
+        EDITION_LABEL="RELEASE EDITION STANDARD (com.agy.plus, port 45157, original gates)"
     fi
 fi
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.agy"
+    package="com.agy.plus"
     android:versionCode="17"
     android:versionName="2.4.1">
 
@@ -42,9 +42,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.CAMERA" />
     <permission
-        android:name="com.agy.permission.INTERNAL_BROADCAST"
+        android:name="com.agy.plus.permission.INTERNAL_BROADCAST"
         android:protectionLevel="signature" />
-    <uses-permission android:name="com.agy.permission.INTERNAL_BROADCAST" />
+    <uses-permission android:name="com.agy.plus.permission.INTERNAL_BROADCAST" />
 
     <application
         android:allowBackup="false"
@@ -119,7 +119,7 @@
             android:name="com.agy.runtime.TorchReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.agy.ACTION_TORCH" />
+                <action android:name="com.agy.plus.ACTION_TORCH" />
             </intent-filter>
         </receiver>
 

@@ -21,7 +21,7 @@ def get_application_id() -> str:
         return app_id.strip()
     if os.environ.get("DEV_MODE") == "1":
         return "com.agy.dev"
-    return "com.agy"
+    return "com.agy.plus"
 
 def load_paths(custom_spec: Optional[str] = None, app_id: Optional[str] = None) -> Dict[str, str]:
     path = custom_spec or SPEC_PATH
