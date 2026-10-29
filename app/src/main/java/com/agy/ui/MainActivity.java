@@ -163,7 +163,6 @@ public class MainActivity extends Activity
 
         splashDeadline = System.currentTimeMillis() + SPLASH_TIMEOUT_MS;
         requestStoragePermissions();
-        com.agy.util.StorageHelper.setupSharedStorageLinks(getFilesDir());
 
         startCoreService();
     }
