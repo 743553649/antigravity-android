@@ -67,3 +67,6 @@ src/patches/dashboard/05-i18n.js
 src/patches/dashboard/06-usage-ui.js
 src/patches/dashboard/07-host-bridge.js
 src/patches/dashboard/08-inline-widget.js
+
+bundle patches/i18n.js
+src/patches/i18n/i18n.js
